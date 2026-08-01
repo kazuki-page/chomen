@@ -12,9 +12,11 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "wrangler d1 migrations apply oyasan-app-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply oyasan-app-db --remote",
+    "db:seed": "node scripts/generate-seed.mjs > database/seed.generated.sql && wrangler d1 execute oyasan-app-db --local --file database/seed.generated.sql",
     "postinstall": "wrangler types"
   },
   "dependencies": {
+    "better-auth": "^1.6.25",
     "drizzle-orm": "^0.45.2",
     "isbot": "^5.1.36",
     "react": "^19.2.7",

@@ -20,3 +20,6 @@ worker-configuration.d.ts
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# 生成物
+database/seed.generated.sql

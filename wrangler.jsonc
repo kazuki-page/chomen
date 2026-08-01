@@ -25,20 +25,26 @@
 		{
 			"binding": "DB",
 			"database_name": "oyasan-app-db",
-			"database_id": "TODO_RUN_WRANGLER_D1_CREATE",
+			"database_id": "060e222d-8aea-4159-8445-976afe88ab93",
 			"migrations_dir": "database/migrations"
 		}
-	],
+	]
 	/**
 	 * R2（修繕写真・設備銘板写真・請求書の撮影）
-	 * `npx wrangler r2 bucket create oyasan-app-attachments` で作成する。
+	 *
+	 * TODO: アカウントで R2 が未有効のためコメントアウトしている。
+	 * ダッシュボードで R2 を有効化したのち、次を実行して以下を復帰させる:
+	 *   npx wrangler r2 bucket create oyasan-app-attachments
+	 *   npm run cf-typegen
+	 *
+	 * 写真機能は Phase 2 のため、MVP の実装は R2 なしで進められる。
 	 */
-	"r2_buckets": [
-		{
-			"binding": "ATTACHMENTS",
-			"bucket_name": "oyasan-app-attachments"
-		}
-	]
+	// "r2_buckets": [
+	//  {
+	//   "binding": "ATTACHMENTS",
+	//   "bucket_name": "oyasan-app-attachments"
+	//  }
+	// ]
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement

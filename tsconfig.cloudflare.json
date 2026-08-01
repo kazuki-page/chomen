@@ -5,6 +5,7 @@
     "app/**/*",
     "app/**/.server/**/*",
     "app/**/.client/**/*",
+    "database/**/*",
     "workers/**/*",
     "worker-configuration.d.ts"
   ],
@@ -19,7 +20,8 @@
     "jsx": "react-jsx",
     "rootDirs": [".", "./.react-router/types"],
     "paths": {
-      "~/*": ["./app/*"]
+      "~/*": ["./app/*"],
+      "@db/*": ["./database/*"]
     },
     "esModuleInterop": true,
     "resolveJsonModule": true

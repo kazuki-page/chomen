@@ -20,8 +20,10 @@
 ### テナント分離
 
 - D1 には Row Level Security が無い。**全業務テーブルに `organization_id` を持たせ、リポジトリ層経由でのみ DB にアクセスする**
-- 画面側から素の Drizzle クエリを呼ばない
-- 組織スコープの無いクエリを書かない
+- **生の Drizzle クエリは `database/repositories/` の外に書かない。** loader / action からは必ずリポジトリ関数を呼ぶ
+- リポジトリ関数は第1引数に `OrgContext` を取り、**すべてのクエリに `organization_id` 条件を含める**
+- この規約により「組織条件が入っているか」の監査範囲が `database/repositories/` だけに限定される。破ると安全装置が無くなる
+- リポジトリ関数の中で `new Date()` を呼ばない。基準日は引数（`asOf` など）で受け取る（テストで日付を固定するため）
 
 ### 導出値
 
@@ -74,6 +76,29 @@ npm run db:migrate:remote # 本番 D1 に適用
 - Worker のエントリポイントは `workers/app.ts`
 - ルート定義は `app/routes.ts`
 - スキーマは `database/schema/`。**マイグレーション SQL を手書きせず、スキーマを編集して `npm run db:generate` で生成する**
+
+## サーバー / クライアントの境界
+
+- `*.server.ts` はクライアントバンドルに含められない。**画面のコンポーネント部分から値をimportするとビルドが落ちる**
+- 画面とサーバーの双方で使う定数は `app/lib/constants.ts` に置く
+- 型だけの import（`import type`）は消えるので `.server.ts` からでも問題ない
+- `database/procedure-templates.ts` は純粋なデータなので画面から import してよい
+
+## 認証
+
+- **業務画面の loader / action は必ず `requireOrg(request)` を通す。** ここで返る `OrgContext` の組織スコープはログインユーザーの所属で確定する
+- 管理者限定の操作は `requireAdmin(request)`
+- **一般公開のサインアップは実装しない。** ユーザーは招待リンク経由でのみ増える。例外は初回セットアップ（ユーザーが1人もいないとき）だけ
+- `findMembershipForUser` は組織スコープを持たない唯一のクエリ。ログインユーザーの所属組織を決める処理なので原理的に絞れない。**この例外を他へ広げないこと**
+- `database/schema/auth.ts` のテーブル名・カラム名は Better Auth の既定。勝手に変えない
+- 本番では `BETTER_AUTH_SECRET` を Cloudflare のシークレットとして設定する（`npx wrangler secret put BETTER_AUTH_SECRET`）。開発は `.dev.vars`
+
+## 状態遷移の実装場所
+
+- 手続きの完了と、それに伴う自動化（次回更新手続きの生成・契約の有効化/終了・募集情報のクリア）は
+  `database/services/procedures.server.ts` に集約する
+- **画面側で状態遷移を書かない。** loader / action からサービス関数を呼ぶだけにする
+- D1 に対話的トランザクションは無いため、連鎖する書き込みは `db.batch()` でまとめる
 
 ## 日付の扱い
 

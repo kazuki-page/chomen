@@ -61,9 +61,15 @@
 | id | text | PK |
 | name | text | 組織名 |
 
-### users（ユーザー）
+### user / session / account / verification（認証）
 
-Better Auth が管理するテーブル群（`users` / `sessions` / `accounts` / `verifications`）をそのまま使用する。
+Better Auth のコアスキーマをそのまま使用する（`database/schema/auth.ts`）。
+テーブル名・カラム名は Better Auth の既定に合わせてあり、変更する場合は `betterAuth()` 側のマッピングも直す必要がある。
+
+業務テーブルと違い `organization_id` は持たない。ユーザーと組織の関係は `memberships` が持つ。
+
+認証方式は **email + password**。メール送信サービスへの依存を避けるため、メール確認は無効にしている。
+マジックリンクに切り替える場合は配信サービス（Resend など）の準備が必要。
 
 ### memberships（所属とロール）
 
