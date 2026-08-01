@@ -16,6 +16,28 @@
 	"upload_source_maps": true,
 	"compatibility_flags": [
 		"nodejs_compat"
+	],
+	/**
+	 * D1 (SQLite)
+	 * database_id は `npx wrangler d1 create oyasan-app-db` の出力を転記する。
+	 */
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "oyasan-app-db",
+			"database_id": "TODO_RUN_WRANGLER_D1_CREATE",
+			"migrations_dir": "database/migrations"
+		}
+	],
+	/**
+	 * R2（修繕写真・設備銘板写真・請求書の撮影）
+	 * `npx wrangler r2 bucket create oyasan-app-attachments` で作成する。
+	 */
+	"r2_buckets": [
+		{
+			"binding": "ATTACHMENTS",
+			"bucket_name": "oyasan-app-attachments"
+		}
 	]
 	/**
 	 * Smart Placement

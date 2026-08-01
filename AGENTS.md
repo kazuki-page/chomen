@@ -64,8 +64,19 @@ npm run build      # ビルド
 npm run typecheck  # wrangler types + react-router typegen + tsc
 npm run deploy     # ビルドして Cloudflare へデプロイ
 npm run cf-typegen # wrangler.jsonc の binding から型を再生成
+
+npm run db:generate       # スキーマ差分から SQL マイグレーションを生成
+npm run db:migrate        # ローカル D1 に適用
+npm run db:migrate:remote # 本番 D1 に適用
 ```
 
 - **バインディング（D1/R2など）を `wrangler.jsonc` に追加したら `npm run cf-typegen` を実行する**こと。`worker-configuration.d.ts` は生成物であり、gitignore 済み
 - Worker のエントリポイントは `workers/app.ts`
 - ルート定義は `app/routes.ts`
+- スキーマは `database/schema/`。**マイグレーション SQL を手書きせず、スキーマを編集して `npm run db:generate` で生成する**
+
+## 日付の扱い
+
+- **日付のみの概念（契約日・更新予定日・入居日・発生日など）は `YYYY-MM-DD` の文字列で保持する。** タイムスタンプにしない
+- 理由: 「契約日の2年後の同日」を扱うため、タイムゾーン起因の日付ずれが致命的になる
+- 時刻を伴う記録（`createdAt` / `checkedAt` / `completedAt` など）は timestamp_ms を使う
