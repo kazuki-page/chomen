@@ -1,25 +1,13 @@
 import { and, eq } from "drizzle-orm";
 
+import { MAX_IMPORT_ROWS } from "~/lib/constants";
 import { looksLikeHeader, normalizeDate, normalizeNumber, parseTable } from "~/lib/tabular";
 import { addYears, type IsoDate } from "~/lib/date";
 import type { OrgContext } from "../context.server";
 import { leases, units } from "../schema";
 import { registerExistingLease } from "./leases.server";
 
-/** 列の順番。見出し行があれば読み飛ばすが、並び順は固定 */
-export const IMPORT_COLUMNS = [
-  "部屋番号",
-  "氏名",
-  "生年",
-  "契約日",
-  "家賃",
-  "次回更新日（省略可）",
-] as const;
-
 const HEADER_KEYWORDS = ["部屋", "号室", "氏名", "名前", "契約", "家賃"];
-
-/** 一度に取り込める上限 */
-export const MAX_IMPORT_ROWS = 200;
 
 export type ImportRow = {
   lineNumber: number;

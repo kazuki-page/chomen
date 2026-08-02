@@ -89,6 +89,8 @@ npm run db:reset-auth     # ローカルのアカウントを全消去し、初�
 - 画面とサーバーの双方で使う定数は `app/lib/constants.ts` に置く
 - 型だけの import（`import type`）は消えるので `.server.ts` からでも問題ない
 - `database/procedure-templates.ts` は純粋なデータなので画面から import してよい
+- **`npm run build` を必ず通してから push する。** この境界違反は typecheck では出ず、ビルドで初めて落ちる
+- 確認するときパイプに繋がない（`npm run build | tail` は tail の終了コードになり、失敗を見逃す）
 
 ## 認証
 

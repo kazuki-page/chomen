@@ -8,6 +8,19 @@
 /** 修繕案件を「放置」とみなす日数 */
 export const STALE_THRESHOLD_DAYS = 14;
 
+/** 契約の一括登録で期待する列の順番。見出し行があれば読み飛ばすが、並び順は固定 */
+export const IMPORT_COLUMNS = [
+  "部屋番号",
+  "氏名",
+  "生年",
+  "契約日",
+  "家賃",
+  "次回更新日（省略可）",
+] as const;
+
+/** 一度に取り込める行数の上限 */
+export const MAX_IMPORT_ROWS = 200;
+
 /**
  * 修繕の対応区分。
  *

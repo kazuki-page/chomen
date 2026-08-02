@@ -1,13 +1,12 @@
 import { Form, Link, redirect } from "react-router";
 
 import {
-  IMPORT_COLUMNS,
-  MAX_IMPORT_ROWS,
   commitLeaseImport,
   previewLeaseImport,
   type ImportPreview,
 } from "@db/services/lease-import.server";
 import { requireOrg } from "~/lib/auth.server";
+import { IMPORT_COLUMNS, MAX_IMPORT_ROWS } from "~/lib/constants";
 import { formatJa } from "~/lib/date";
 import type { Route } from "./+types/lease-import";
 
