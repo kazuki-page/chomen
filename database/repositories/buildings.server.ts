@@ -25,6 +25,19 @@ export async function listBuildings(ctx: OrgContext): Promise<BuildingListItem[]
     .orderBy(asc(buildings.createdAt));
 }
 
+export async function getBuilding(
+  ctx: OrgContext,
+  buildingId: string,
+): Promise<{ id: string; name: string; address: string | null } | null> {
+  const [row] = await ctx.db
+    .select({ id: buildings.id, name: buildings.name, address: buildings.address })
+    .from(buildings)
+    .where(
+      and(eq(buildings.organizationId, ctx.organizationId), eq(buildings.id, buildingId)),
+    );
+  return row ?? null;
+}
+
 export async function createBuilding(
   ctx: OrgContext,
   input: { name: string; address: string | null },

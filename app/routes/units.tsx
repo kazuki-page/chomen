@@ -24,11 +24,12 @@ export async function loader({ request }: Route.LoaderArgs) {
     hasBuilding: buildings.length > 0,
     created: Number(params.get("created")) || 0,
     skipped: Number(params.get("skipped")) || 0,
+    imported: Number(params.get("imported")) || 0,
   };
 }
 
 export default function Units({ loaderData }: Route.ComponentProps) {
-  const { items, summary, hasBuilding, created, skipped } = loaderData;
+  const { items, summary, hasBuilding, created, skipped, imported } = loaderData;
   const rooms = items.filter((i) => i.type === "room");
   const parking = items.filter((i) => i.type === "parking");
 
@@ -58,13 +59,27 @@ export default function Units({ loaderData }: Route.ComponentProps) {
     <main className="mx-auto max-w-4xl px-4 py-6 pb-16">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">部屋・駐車場</h1>
-        <Link
-          to="/units/new"
-          className="rounded-xl bg-sky-600 px-4 py-3 text-base font-bold text-white hover:bg-sky-700"
-        >
-          ＋ 追加
-        </Link>
+        <div className="flex shrink-0 gap-2">
+          <Link
+            to="/units/import"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-medium hover:bg-slate-100"
+          >
+            一括登録
+          </Link>
+          <Link
+            to="/units/new"
+            className="rounded-xl bg-sky-600 px-4 py-3 text-base font-bold text-white hover:bg-sky-700"
+          >
+            ＋ 追加
+          </Link>
+        </div>
       </div>
+
+      {imported > 0 && (
+        <p className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base text-emerald-900">
+          {imported}件の契約を登録しました。次回の更新手続きも作成済みです
+        </p>
+      )}
 
       {created > 0 && (
         <p className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base text-emerald-900">

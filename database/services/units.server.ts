@@ -1,5 +1,5 @@
 import type { BatchItem } from "drizzle-orm/batch";
-import { and, eq, max } from "drizzle-orm";
+import { and, eq, max, ne } from "drizzle-orm";
 
 import { MAX_UNITS_PER_BATCH } from "~/lib/unit-codes";
 import type { OrgContext } from "../context.server";
@@ -77,6 +77,53 @@ export async function createUnits(
   }
 
   return { created: writes.length, skipped };
+}
+
+export type RenameUnitResult = { ok: true } | { ok: false; reason: string };
+
+/**
+ * 部屋番号を変更する。登録時の打ち間違いを直すための機能。
+ *
+ * 同じ建物に同じ番号があると unique 制約に触れるため、事前に理由つきで拒否する。
+ */
+export async function renameUnit(
+  ctx: OrgContext,
+  unitId: string,
+  code: string,
+): Promise<RenameUnitResult> {
+  const trimmed = code.trim();
+  if (!trimmed) return { ok: false, reason: "番号を入力してください" };
+
+  const [unit] = await ctx.db
+    .select({ id: units.id, buildingId: units.buildingId })
+    .from(units)
+    .where(and(eq(units.organizationId, ctx.organizationId), eq(units.id, unitId)));
+
+  if (!unit) return { ok: false, reason: "部屋が見つかりません" };
+
+  const conflict = await ctx.db
+    .select({ id: units.id })
+    .from(units)
+    .where(
+      and(
+        eq(units.organizationId, ctx.organizationId),
+        eq(units.buildingId, unit.buildingId),
+        eq(units.code, trimmed),
+        ne(units.id, unitId),
+      ),
+    )
+    .limit(1);
+
+  if (conflict.length > 0) {
+    return { ok: false, reason: `「${trimmed}」は同じ建物にすでにあります` };
+  }
+
+  await ctx.db
+    .update(units)
+    .set({ code: trimmed, updatedAt: new Date() })
+    .where(and(eq(units.organizationId, ctx.organizationId), eq(units.id, unitId)));
+
+  return { ok: true };
 }
 
 export type DeleteUnitResult = { ok: true } | { ok: false; reason: string };

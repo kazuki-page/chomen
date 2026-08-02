@@ -7,7 +7,7 @@ import {
   listPendingInvitations,
   revokeInvitation,
 } from "@db/services/invitations.server";
-import { requireAdmin, requireOrg } from "~/lib/auth.server";
+import { cookieHeaders, getAuth, requireAdmin, requireOrg } from "~/lib/auth.server";
 import { formatJa } from "~/lib/date";
 import type { Route } from "./+types/settings";
 
@@ -26,13 +26,53 @@ export async function loader({ request }: Route.LoaderArgs) {
     members: await listMembers(ctx),
     invitations: isAdmin ? await listPendingInvitations(ctx) : [],
     origin: new URL(request.url).origin,
+    passwordChanged: new URL(request.url).searchParams.get("password") === "changed",
   };
 }
 
 export async function action({ request }: Route.ActionArgs) {
-  const { ctx, session } = await requireAdmin(request);
   const form = await request.formData();
   const intent = form.get("intent");
+
+  // パスワード変更は管理者でなくても自分自身に対して行える
+  if (intent === "change_password") {
+    await requireOrg(request);
+
+    const newPassword = String(form.get("newPassword") ?? "");
+    if (newPassword.length < 8) {
+      return { passwordError: "新しいパスワードは8文字以上にしてください", passwordDone: false };
+    }
+
+    try {
+      const response = await getAuth(request).api.changePassword({
+        body: {
+          currentPassword: String(form.get("currentPassword") ?? ""),
+          newPassword,
+          // 他の端末のログインは切る。パスワードを変える理由を考えると、これが安全側
+          revokeOtherSessions: true,
+        },
+        headers: request.headers,
+        asResponse: true,
+      });
+
+      if (!response.ok) {
+        return { passwordError: "現在のパスワードが違います", passwordDone: false };
+      }
+
+      return new Response(null, {
+        status: 303,
+        headers: (() => {
+          const headers = cookieHeaders(response);
+          headers.set("location", "/settings?password=changed");
+          return headers;
+        })(),
+      });
+    } catch {
+      return { passwordError: "現在のパスワードが違います", passwordDone: false };
+    }
+  }
+
+  const { ctx, session } = await requireAdmin(request);
 
   if (intent === "invite") {
     await createInvitation(ctx, {
@@ -51,8 +91,9 @@ export async function action({ request }: Route.ActionArgs) {
   throw new Response("不明な操作です", { status: 400 });
 }
 
-export default function Settings({ loaderData }: Route.ComponentProps) {
-  const { session, isAdmin, buildings, members, invitations, origin } = loaderData;
+export default function Settings({ loaderData, actionData }: Route.ComponentProps) {
+  const { session, isAdmin, buildings, members, invitations, origin, passwordChanged } =
+    loaderData;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6 pb-16">
@@ -77,6 +118,56 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
       </section>
 
       <section className="mt-8">
+        <h2 className="text-lg font-bold">パスワードの変更</h2>
+
+        {passwordChanged && (
+          <p className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base text-emerald-900">
+            パスワードを変更しました。他の端末のログインは解除されています。
+          </p>
+        )}
+        {actionData?.passwordError && (
+          <p className="mt-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900">
+            {actionData.passwordError}
+          </p>
+        )}
+
+        <Form
+          method="post"
+          className="mt-3 space-y-4 rounded-xl border border-slate-200 bg-white p-4"
+        >
+          <input type="hidden" name="intent" value="change_password" />
+          <label className="block">
+            <span className="text-base font-medium text-slate-700">現在のパスワード</span>
+            <input
+              type="password"
+              name="currentPassword"
+              required
+              autoComplete="current-password"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+            />
+          </label>
+          <label className="block">
+            <span className="text-base font-medium text-slate-700">新しいパスワード</span>
+            <input
+              type="password"
+              name="newPassword"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+            />
+            <span className="mt-1 block text-sm text-slate-500">8文字以上</span>
+          </label>
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-sky-600 px-4 py-3 text-lg font-bold text-white hover:bg-sky-700"
+          >
+            変更する
+          </button>
+        </Form>
+      </section>
+
+      <section className="mt-8">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-bold">物件</h2>
           <Link to="/buildings/new" className="text-base font-medium text-sky-700 hover:underline">
@@ -90,14 +181,21 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
         ) : (
           <ul className="mt-3 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
             {buildings.map((b) => (
-              <li key={b.id} className="flex items-center gap-3 px-4 py-3">
-                <span className="min-w-0 flex-1">
-                  <span className="block font-medium">{b.name}</span>
-                  {b.address && <span className="block text-sm text-slate-500">{b.address}</span>}
-                </span>
-                <span className="shrink-0 text-sm text-slate-500 tabular-nums">
-                  {b.unitCount}件
-                </span>
+              <li key={b.id}>
+                <Link
+                  to={`/buildings/${b.id}`}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{b.name}</span>
+                    <span className="block text-sm text-slate-500">
+                      {b.address ?? "住所が未設定"}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-sm text-slate-500 tabular-nums">
+                    {b.unitCount}件
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>

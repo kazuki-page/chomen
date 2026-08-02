@@ -5,6 +5,7 @@ import { getUnitDetail, updateListing } from "@db/repositories/units.server";
 import { listWorkOrders } from "@db/repositories/work-orders.server";
 import { registerExistingLease } from "@db/services/leases.server";
 import { startProcedure } from "@db/services/procedures.server";
+import { renameUnit } from "@db/services/units.server";
 import { WORK_ORDER_STATUS_LABELS } from "~/lib/constants";
 import { formatJa, todayInTokyo } from "~/lib/date";
 import { requireOrg } from "~/lib/auth.server";
@@ -47,6 +48,12 @@ export async function action({ request, params }: Route.ActionArgs) {
     return redirect(`/procedures/${procedureId}`);
   }
 
+  if (intent === "rename") {
+    const result = await renameUnit(ctx, params.unitId, String(form.get("code") ?? ""));
+    if (!result.ok) return { error: result.reason };
+    return redirect(`/units/${params.unitId}`);
+  }
+
   if (intent === "register_lease") {
     const contractDate = String(form.get("contractDate") ?? "");
     const rent = Number(form.get("rent"));
@@ -81,7 +88,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   throw new Response("不明な操作です", { status: 400 });
 }
 
-export default function Unit({ loaderData }: Route.ComponentProps) {
+export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
   const { unit, procedures, workOrders, today } = loaderData;
 
   return (
@@ -89,6 +96,12 @@ export default function Unit({ loaderData }: Route.ComponentProps) {
       <Link to="/units" className="text-slate-500 hover:underline">
         ← 部屋・駐車場
       </Link>
+
+      {actionData?.error && (
+        <p className="mt-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900">
+          {actionData.error}
+        </p>
+      )}
 
       <header className="mt-3 flex items-center gap-3">
         <h1 className="text-3xl font-bold tabular-nums">{unit.code}</h1>
@@ -124,6 +137,26 @@ export default function Unit({ loaderData }: Route.ComponentProps) {
       )}
 
       {unit.lease && <MoveOutForm today={today} />}
+
+      <details className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+        <summary className="cursor-pointer text-lg font-bold">番号を直す</summary>
+        <Form method="post" className="mt-4 flex gap-2">
+          <input type="hidden" name="intent" value="rename" />
+          <input
+            type="text"
+            name="code"
+            required
+            defaultValue={unit.code}
+            className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
+          />
+          <button
+            type="submit"
+            className="shrink-0 rounded-lg border-2 border-slate-800 px-4 py-3 text-base font-bold hover:bg-slate-100"
+          >
+            保存
+          </button>
+        </Form>
+      </details>
 
       <Section title="手続き">
         {procedures.length === 0 ? (
