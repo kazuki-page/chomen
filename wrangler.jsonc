@@ -7,9 +7,11 @@
 	"name": "oyasan-app",
 	"compatibility_date": "2026-08-01",
 	"main": "./workers/app.ts",
-	"vars": {
-		"VALUE_FROM_CLOUDFLARE": "Hello from Cloudflare"
-	},
+	/**
+	 * バージョンごとのプレビューURLは公開されるため無効にする。
+	 * 同じ本番 D1 を参照するので、公開面は少ないほうがよい。
+	 */
+	"preview_urls": false,
 	"observability": {
 		"enabled": true
 	},

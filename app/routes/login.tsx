@@ -1,5 +1,8 @@
+import { env } from "cloudflare:workers";
 import { Form, Link, redirect } from "react-router";
 
+import { createDatabase } from "@db/context.server";
+import { clientKey, consumeAttempt, resetAttempts } from "@db/services/rate-limit.server";
 import { cookieHeaders, getAppSession, getAuth } from "~/lib/auth.server";
 import type { Route } from "./+types/login";
 
@@ -12,11 +15,24 @@ export async function loader({ request }: Route.LoaderArgs) {
   return { next: new URL(request.url).searchParams.get("next") ?? "/" };
 }
 
+/** 総当たり対策。同一IP × 同一メールで 1 分に 5 回まで */
+const LOGIN_LIMIT = { max: 5, windowSeconds: 60 };
+
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
   const email = String(form.get("email") ?? "");
   const password = String(form.get("password") ?? "");
   const next = String(form.get("next") ?? "/");
+
+  const db = createDatabase(env.DB);
+  const key = clientKey(request, `login:${email.toLowerCase()}`);
+
+  const limit = await consumeAttempt(db, { key, ...LOGIN_LIMIT });
+  if (!limit.allowed) {
+    return {
+      error: `試行が多すぎます。${limit.retryAfterSeconds}秒ほど待ってからもう一度お試しください`,
+    };
+  }
 
   const response = await getAuth(request).api.signInEmail({
     body: { email, password },
@@ -24,9 +40,11 @@ export async function action({ request }: Route.ActionArgs) {
   });
 
   if (!response.ok) {
+    // 失敗の内訳は伝えない（メールアドレスの存在を推測させないため）
     return { error: "メールアドレスかパスワードが違います" };
   }
 
+  await resetAttempts(db, key);
   return redirect(safeNext(next), { headers: cookieHeaders(response) });
 }
 

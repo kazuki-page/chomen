@@ -99,6 +99,17 @@ npm run db:reset-auth     # ローカルのアカウントを全消去し、初�
 - `database/schema/auth.ts` のテーブル名・カラム名は Better Auth の既定。勝手に変えない
 - 本番では `BETTER_AUTH_SECRET` を Cloudflare のシークレットとして設定する（`npx wrangler secret put BETTER_AUTH_SECRET`）。開発は `.dev.vars`
 
+## セキュリティ上の決めごと
+
+- **ログイン・登録には自前のレート制限を通す**（`database/services/rate-limit.server.ts`）。
+  Better Auth の rateLimit は HTTP ハンドラ経由にしか効かず、`auth.api.*` の直接呼び出しは素通りするため
+- レート制限テーブルは認証前に使うため `organization_id` を持たない。**この例外を業務クエリに広げない**
+- セキュリティヘッダは `workers/app.ts` で全レスポンスに付ける
+- ログイン失敗のメッセージは**メールアドレスの存在を推測させない**汎用文言のままにする
+- リダイレクト先を受け取るときは同一サイトのパスに限定する（`safeNext`）
+- 状態を変える操作は必ず POST。GET で副作用を起こさない
+  （セッション Cookie が SameSite=Lax なので、これが CSRF の主防御になっている）
+
 ## 状態遷移の実装場所
 
 - 手続きの完了と、それに伴う自動化（次回更新手続きの生成・契約の有効化/終了・募集情報のクリア）は

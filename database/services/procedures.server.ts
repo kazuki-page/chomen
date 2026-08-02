@@ -47,6 +47,8 @@ export async function setItemChecked(
         and(
           eq(procedureItems.organizationId, ctx.organizationId),
           eq(procedureItems.id, input.itemId),
+          // 別の手続きの項目を書き換えられないよう、所属も一致させる
+          eq(procedureItems.procedureId, input.procedureId),
         ),
       ),
   ];

@@ -6,6 +6,7 @@ import {
   attachUserToOrganization,
   checkSignupEligibility,
 } from "@db/services/invitations.server";
+import { clientKey, consumeAttempt } from "@db/services/rate-limit.server";
 import { cookieHeaders, getAuth } from "~/lib/auth.server";
 import type { Route } from "./+types/signup";
 
@@ -25,11 +26,25 @@ export async function loader({ request }: Route.LoaderArgs) {
   };
 }
 
+/** 招待トークンの総当たり対策。同一IPから 5 分に 10 回まで */
+const SIGNUP_LIMIT = { max: 10, windowSeconds: 300 };
+
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
   const token = (form.get("token") as string | null) || null;
 
   const db = createDatabase(env.DB);
+
+  const limit = await consumeAttempt(db, {
+    key: clientKey(request, "signup"),
+    ...SIGNUP_LIMIT,
+  });
+  if (!limit.allowed) {
+    return {
+      error: `試行が多すぎます。${limit.retryAfterSeconds}秒ほど待ってからもう一度お試しください`,
+    };
+  }
+
   const check = await checkSignupEligibility(db, token);
   if (check.kind === "invalid") {
     return { error: check.reason };
