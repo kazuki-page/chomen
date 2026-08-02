@@ -3,6 +3,7 @@ import { Form, Link, redirect } from "react-router";
 import { listProceduresForUnit } from "@db/repositories/procedures.server";
 import { getUnitDetail, updateListing } from "@db/repositories/units.server";
 import { listWorkOrders } from "@db/repositories/work-orders.server";
+import { registerExistingLease } from "@db/services/leases.server";
 import { startProcedure } from "@db/services/procedures.server";
 import { WORK_ORDER_STATUS_LABELS } from "~/lib/constants";
 import { formatJa, todayInTokyo } from "~/lib/date";
@@ -44,6 +45,28 @@ export async function action({ request, params }: Route.ActionArgs) {
       scheduledOn: String(form.get("scheduledOn") || todayInTokyo()),
     });
     return redirect(`/procedures/${procedureId}`);
+  }
+
+  if (intent === "register_lease") {
+    const contractDate = String(form.get("contractDate") ?? "");
+    const rent = Number(form.get("rent"));
+    const name = String(form.get("tenantName") ?? "").trim();
+
+    if (!name || !contractDate || !Number.isFinite(rent)) {
+      return { error: "氏名・契約日・家賃を入力してください" };
+    }
+
+    const birthYear = Number(form.get("birthYear"));
+    await registerExistingLease(ctx, {
+      unitId: params.unitId,
+      tenantName: name,
+      birthYear: Number.isFinite(birthYear) && birthYear > 0 ? birthYear : null,
+      contractDate,
+      rent,
+      nextRenewalDate: String(form.get("nextRenewalDate") ?? "") || null,
+    });
+
+    return redirect(`/units/${params.unitId}`);
   }
 
   if (intent === "save_listing") {
@@ -94,11 +117,10 @@ export default function Unit({ loaderData }: Route.ComponentProps) {
           </dl>
         </section>
       ) : (
-        <ListingForm
-          rent={unit.listingRent}
-          startedOn={unit.listingStartedOn}
-          today={today}
-        />
+        <>
+          <RegisterLeaseForm today={today} />
+          <ListingForm rent={unit.listingRent} startedOn={unit.listingStartedOn} today={today} />
+        </>
       )}
 
       {unit.lease && <MoveOutForm today={today} />}
@@ -151,6 +173,93 @@ export default function Unit({ loaderData }: Route.ComponentProps) {
         )}
       </Section>
     </main>
+  );
+}
+
+/**
+ * すでに入居している部屋の契約を登録する。
+ *
+ * 新規入居は「入居手続き」から始まるが、導入時点で入居中の部屋は
+ * 手続きを最初から踏めない。そのための移行専用の入口なので、
+ * 通常運用で目立たないよう畳んでおく。
+ */
+function RegisterLeaseForm({ today }: { today: string }) {
+  return (
+    <details className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+      <summary className="cursor-pointer text-lg font-bold">
+        すでに入居中の部屋として登録する
+      </summary>
+      <p className="mt-2 text-base text-slate-600">
+        導入時の登録用です。登録すると次回の更新手続きが自動で作られます。
+      </p>
+
+      <Form method="post" className="mt-4 space-y-4">
+        <input type="hidden" name="intent" value="register_lease" />
+
+        <label className="block">
+          <span className="text-base font-medium text-slate-700">入居者の氏名</span>
+          <input
+            type="text"
+            name="tenantName"
+            required
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-base font-medium text-slate-700">生年</span>
+          <span className="mt-0.5 block text-sm text-slate-500">西暦・任意</span>
+          <input
+            type="number"
+            name="birthYear"
+            inputMode="numeric"
+            placeholder="1985"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-base font-medium text-slate-700">契約日</span>
+          <input
+            type="date"
+            name="contractDate"
+            required
+            defaultValue={today}
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-base font-medium text-slate-700">現在の家賃（円）</span>
+          <input
+            type="number"
+            name="rent"
+            required
+            inputMode="numeric"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-base font-medium text-slate-700">次回の更新予定日</span>
+          <span className="mt-0.5 block text-sm text-slate-500">
+            空のままなら契約日の2年後になります
+          </span>
+          <input
+            type="date"
+            name="nextRenewalDate"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+          />
+        </label>
+
+        <button
+          type="submit"
+          className="w-full rounded-xl bg-sky-600 px-4 py-3 text-lg font-bold text-white hover:bg-sky-700"
+        >
+          契約を登録する
+        </button>
+      </Form>
+    </details>
   );
 }
 

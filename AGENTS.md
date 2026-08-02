@@ -70,7 +70,13 @@ npm run cf-typegen # wrangler.jsonc の binding から型を再生成
 npm run db:generate       # スキーマ差分から SQL マイグレーションを生成
 npm run db:migrate        # ローカル D1 に適用
 npm run db:migrate:remote # 本番 D1 に適用
+npm run db:seed           # 架空のデモデータを投入（業務データのみ入れ替え）
+npm run db:reset-auth     # ローカルのアカウントを全消去し、初回セットアップをやり直す
 ```
+
+> **検証でアカウントを作ったら消しておくこと。**
+> ユーザーが1人でも存在すると `/signup` は招待リンクを要求するようになり、
+> 開発者本人が初回セットアップできなくなる。
 
 - **バインディング（D1/R2など）を `wrangler.jsonc` に追加したら `npm run cf-typegen` を実行する**こと。`worker-configuration.d.ts` は生成物であり、gitignore 済み
 - Worker のエントリポイントは `workers/app.ts`

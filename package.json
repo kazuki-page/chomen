@@ -13,6 +13,7 @@
     "db:migrate": "wrangler d1 migrations apply oyasan-app-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply oyasan-app-db --remote",
     "db:seed": "node scripts/generate-seed.mjs > database/seed.generated.sql && wrangler d1 execute oyasan-app-db --local --file database/seed.generated.sql",
+    "db:reset-auth": "wrangler d1 execute oyasan-app-db --local --command \"DELETE FROM session; DELETE FROM account; DELETE FROM memberships; DELETE FROM invitations; DELETE FROM user;\"",
     "postinstall": "wrangler types"
   },
   "dependencies": {

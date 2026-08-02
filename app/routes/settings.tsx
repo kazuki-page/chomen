@@ -1,5 +1,6 @@
-import { Form, redirect } from "react-router";
+import { Form, Link, redirect } from "react-router";
 
+import { listBuildings } from "@db/repositories/buildings.server";
 import { listMembers } from "@db/repositories/memberships.server";
 import {
   createInvitation,
@@ -21,6 +22,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   return {
     session,
     isAdmin,
+    buildings: await listBuildings(ctx),
     members: await listMembers(ctx),
     invitations: isAdmin ? await listPendingInvitations(ctx) : [],
     origin: new URL(request.url).origin,
@@ -50,7 +52,7 @@ export async function action({ request }: Route.ActionArgs) {
 }
 
 export default function Settings({ loaderData }: Route.ComponentProps) {
-  const { session, isAdmin, members, invitations, origin } = loaderData;
+  const { session, isAdmin, buildings, members, invitations, origin } = loaderData;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6 pb-16">
@@ -72,6 +74,34 @@ export default function Settings({ loaderData }: Route.ComponentProps) {
             ログアウト
           </button>
         </Form>
+      </section>
+
+      <section className="mt-8">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-bold">物件</h2>
+          <Link to="/buildings/new" className="text-base font-medium text-sky-700 hover:underline">
+            ＋ 建物を追加
+          </Link>
+        </div>
+        {buildings.length === 0 ? (
+          <p className="mt-3 rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-slate-500">
+            建物が登録されていません
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+            {buildings.map((b) => (
+              <li key={b.id} className="flex items-center gap-3 px-4 py-3">
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{b.name}</span>
+                  {b.address && <span className="block text-sm text-slate-500">{b.address}</span>}
+                </span>
+                <span className="shrink-0 text-sm text-slate-500 tabular-nums">
+                  {b.unitCount}件
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="mt-8">

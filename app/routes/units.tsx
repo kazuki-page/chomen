@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 
+import { listBuildings } from "@db/repositories/buildings.server";
 import { listUnits, summarize, type UnitListItem } from "@db/repositories/units.server";
 import { formatJa, todayInTokyo } from "~/lib/date";
 import { requireOrg } from "~/lib/auth.server";
@@ -11,18 +12,66 @@ export function meta(_: Route.MetaArgs) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   const { ctx } = await requireOrg(request);
-  const items = await listUnits(ctx, { asOf: todayInTokyo() });
-  return { items, summary: summarize(items) };
+  const [items, buildings] = await Promise.all([
+    listUnits(ctx, { asOf: todayInTokyo() }),
+    listBuildings(ctx),
+  ]);
+
+  const params = new URL(request.url).searchParams;
+  return {
+    items,
+    summary: summarize(items),
+    hasBuilding: buildings.length > 0,
+    created: Number(params.get("created")) || 0,
+    skipped: Number(params.get("skipped")) || 0,
+  };
 }
 
 export default function Units({ loaderData }: Route.ComponentProps) {
-  const { items, summary } = loaderData;
+  const { items, summary, hasBuilding, created, skipped } = loaderData;
   const rooms = items.filter((i) => i.type === "room");
   const parking = items.filter((i) => i.type === "parking");
 
+  if (items.length === 0) {
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-6">
+        <h1 className="text-2xl font-bold">部屋・駐車場</h1>
+        <div className="mt-6 rounded-xl border-2 border-dashed border-slate-300 px-4 py-8 text-center">
+          <p className="text-lg font-medium">まだ部屋が登録されていません</p>
+          <p className="mt-2 text-base text-slate-600">
+            {hasBuilding
+              ? "部屋番号をまとめて作れます。"
+              : "はじめに建物を登録します。そのあと部屋番号をまとめて作れます。"}
+          </p>
+          <Link
+            to={hasBuilding ? "/units/new" : "/buildings/new"}
+            className="mt-5 inline-block rounded-xl bg-sky-600 px-5 py-3 text-lg font-bold text-white hover:bg-sky-700"
+          >
+            {hasBuilding ? "部屋を作る" : "建物を登録する"}
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-6 pb-16">
-      <h1 className="text-2xl font-bold">部屋・駐車場</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">部屋・駐車場</h1>
+        <Link
+          to="/units/new"
+          className="rounded-xl bg-sky-600 px-4 py-3 text-base font-bold text-white hover:bg-sky-700"
+        >
+          ＋ 追加
+        </Link>
+      </div>
+
+      {created > 0 && (
+        <p className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base text-emerald-900">
+          {created}件を追加しました
+          {skipped > 0 && `（${skipped}件は既にあったため作成していません）`}
+        </p>
+      )}
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <SummaryCard
