@@ -48,6 +48,24 @@ export function subtractDays(date: IsoDate, days: number): IsoDate {
   return new Date(t).toISOString().slice(0, 10);
 }
 
+/**
+ * 生年からおおよその年齢を出す。
+ *
+ * 誕生日を保持していないため、単純に「今年 − 生年」で計算する。
+ * 誕生日前の人は1歳多く出るが、入居者の年齢構成をざっくり把握する用途なので許容する。
+ */
+export function approximateAge(
+  birthYear: number | null | undefined,
+  asOf: IsoDate,
+): number | null {
+  if (!birthYear) return null;
+  const age = Number(asOf.slice(0, 4)) - birthYear;
+  return age >= 0 && age < 130 ? age : null;
+}
+
+/** 高齢者とみなす年齢。入居者の年齢構成の把握に使う */
+export const SENIOR_AGE = 65;
+
 /** 「2026年8月1日」形式で表示する */
 export function formatJa(date: IsoDate | null | undefined): string {
   if (!date) return "";

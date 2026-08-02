@@ -11,6 +11,8 @@ export type UnitListItem = {
   /** 有効な契約が無ければ空室 */
   isVacant: boolean;
   tenantName: string | null;
+  /** 生年。年齢の算出は表示側で行う（基準日を呼び出し側が決められるように） */
+  tenantBirthYear: number | null;
   /** 契約中は現在家賃、空室中は募集家賃 */
   rent: number | null;
   nextRenewalDate: IsoDate | null;
@@ -51,6 +53,7 @@ export async function listUnits(
       leaseId: leases.id,
       nextRenewalDate: leases.nextRenewalDate,
       tenantName: tenants.name,
+      tenantBirthYear: tenants.birthYear,
       currentRent: currentRent,
     })
     .from(units)
@@ -67,6 +70,7 @@ export async function listUnits(
       code: row.code,
       isVacant,
       tenantName: isVacant ? null : row.tenantName,
+      tenantBirthYear: isVacant ? null : row.tenantBirthYear,
       rent: isVacant ? row.listingRent : row.currentRent,
       nextRenewalDate: isVacant ? null : row.nextRenewalDate,
       listingStartedOn: isVacant ? row.listingStartedOn : null,
@@ -99,6 +103,7 @@ export type UnitDetail = {
   lease: {
     id: string;
     tenantName: string | null;
+    tenantBirthYear: number | null;
     contractDate: IsoDate;
     nextRenewalDate: IsoDate | null;
     rent: number | null;
@@ -131,6 +136,7 @@ export async function getUnitDetail(
       contractDate: leases.contractDate,
       nextRenewalDate: leases.nextRenewalDate,
       tenantName: tenants.name,
+      tenantBirthYear: tenants.birthYear,
       currentRent,
     })
     .from(units)
@@ -154,6 +160,7 @@ export async function getUnitDetail(
         : {
             id: row.leaseId,
             tenantName: row.tenantName,
+            tenantBirthYear: row.tenantBirthYear,
             contractDate: row.contractDate,
             nextRenewalDate: row.nextRenewalDate,
             rent: row.currentRent,

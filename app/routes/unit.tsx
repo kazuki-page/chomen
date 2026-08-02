@@ -7,7 +7,7 @@ import { registerExistingLease } from "@db/services/leases.server";
 import { startProcedure } from "@db/services/procedures.server";
 import { renameUnit } from "@db/services/units.server";
 import { WORK_ORDER_STATUS_LABELS } from "~/lib/constants";
-import { formatJa, todayInTokyo } from "~/lib/date";
+import { approximateAge, formatJa, todayInTokyo } from "~/lib/date";
 import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/unit";
 
@@ -119,6 +119,14 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
           <h2 className="text-lg font-bold">契約</h2>
           <dl className="mt-3 space-y-2 text-base">
             <Row label="入居者" value={unit.lease.tenantName ?? "—"} />
+            <Row
+              label="年齢"
+              value={(() => {
+                const age = approximateAge(unit.lease.tenantBirthYear, today);
+                if (age === null) return "生年が未登録";
+                return `およそ ${age}歳（${unit.lease.tenantBirthYear}年生）`;
+              })()}
+            />
             <Row
               label="家賃"
               value={

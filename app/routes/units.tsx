@@ -2,7 +2,7 @@ import { Link } from "react-router";
 
 import { listBuildings } from "@db/repositories/buildings.server";
 import { listUnits, summarize, type UnitListItem } from "@db/repositories/units.server";
-import { formatJa, todayInTokyo } from "~/lib/date";
+import { SENIOR_AGE, approximateAge, formatJa, todayInTokyo } from "~/lib/date";
 import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/units";
 
@@ -18,8 +18,18 @@ export async function loader({ request }: Route.LoaderArgs) {
   ]);
 
   const params = new URL(request.url).searchParams;
+  const today = todayInTokyo();
+  const ages = items
+    .map((i) => approximateAge(i.tenantBirthYear, today))
+    .filter((a): a is number => a !== null);
+
   return {
     items,
+    today,
+    ageSummary: {
+      known: ages.length,
+      seniors: ages.filter((a) => a >= SENIOR_AGE).length,
+    },
     summary: summarize(items),
     hasBuilding: buildings.length > 0,
     created: Number(params.get("created")) || 0,
@@ -29,7 +39,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export default function Units({ loaderData }: Route.ComponentProps) {
-  const { items, summary, hasBuilding, created, skipped, imported } = loaderData;
+  const { items, summary, hasBuilding, created, skipped, imported, today, ageSummary } =
+    loaderData;
   const rooms = items.filter((i) => i.type === "room");
   const parking = items.filter((i) => i.type === "parking");
 
@@ -103,15 +114,25 @@ export default function Units({ loaderData }: Route.ComponentProps) {
         />
       </div>
 
+      {ageSummary.known > 0 && (
+        <p className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-base">
+          <span className="text-slate-500">入居者の年齢</span>
+          <span className="ml-3 tabular-nums">
+            生年が分かるのは {ageSummary.known}名、うち {SENIOR_AGE}歳以上は{" "}
+            <span className="font-bold">{ageSummary.seniors}名</span>
+          </span>
+        </p>
+      )}
+
       <Section title="部屋">
         {rooms.map((u) => (
-          <UnitCard key={u.id} unit={u} />
+          <UnitCard key={u.id} unit={u} today={today} />
         ))}
       </Section>
 
       <Section title="駐車場">
         {parking.map((u) => (
-          <UnitCard key={u.id} unit={u} />
+          <UnitCard key={u.id} unit={u} today={today} />
         ))}
       </Section>
     </main>
@@ -156,7 +177,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function UnitCard({ unit }: { unit: UnitListItem }) {
+function UnitCard({ unit, today }: { unit: UnitListItem; today: string }) {
+  const age = approximateAge(unit.tenantBirthYear, today);
   return (
     <li>
       <Link
@@ -172,7 +194,12 @@ function UnitCard({ unit }: { unit: UnitListItem }) {
             空室
           </span>
         ) : (
-          <span className="truncate text-lg text-slate-700">{unit.tenantName}</span>
+          <span className="truncate text-lg text-slate-700">
+            {unit.tenantName}
+            {age !== null && (
+              <span className="ml-1 text-base text-slate-500 tabular-nums">{age}歳</span>
+            )}
+          </span>
         )}
       </div>
 
