@@ -23,3 +23,8 @@ worker-configuration.d.ts
 
 # 生成物
 database/seed.generated.sql
+
+# データベースの実体（誤コミット防止の保険）
+*.sqlite
+*.sqlite3
+*.db
