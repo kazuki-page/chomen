@@ -19,3 +19,31 @@ html,
 body {
   @apply bg-slate-50 text-slate-900;
 }
+
+/*
+ * 印刷用の調整。
+ * PDF はサーバーで生成せず、この印刷レイアウトから
+ * ブラウザの「PDFとして保存」で作ってもらう。
+ */
+@media print {
+  /* 画面上のナビゲーションや操作ボタンは紙に出さない */
+  header nav {
+    display: none;
+  }
+
+  html,
+  body {
+    background: #fff;
+  }
+
+  /* インクを節約し、罫線をはっきりさせる */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 14mm 12mm;
+}

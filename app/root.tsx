@@ -52,6 +52,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
           <NavItem to="/units">部屋</NavItem>
           <NavItem to="/equipment">設備</NavItem>
           <NavItem to="/work-orders">修繕</NavItem>
+          <NavItem to="/export">書き出し</NavItem>
           <NavItem to="/settings">設定</NavItem>
         </nav>
       </header>

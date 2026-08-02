@@ -16,6 +16,13 @@ export default [
   route("work-orders/:workOrderId", "routes/work-order.tsx"),
   route("settings", "routes/settings.tsx"),
 
+  // 書き出し・印刷
+  route("export", "routes/export.tsx"),
+  route("export/:kind.csv", "routes/export-csv.ts"),
+  route("print/occupancy", "routes/print-occupancy.tsx"),
+  route("print/ledger", "routes/print-ledger.tsx"),
+  route("print/equipment", "routes/print-equipment.tsx"),
+
   // 認証
   route("login", "routes/login.tsx"),
   route("signup", "routes/signup.tsx"),
