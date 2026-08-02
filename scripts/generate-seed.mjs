@@ -57,7 +57,7 @@ out("PRAGMA defer_foreign_keys = true;");
 for (const t of [
   "attachments",
   "work_orders",
-  "equipment",
+  "equipment_records",
   "procedure_items",
   "procedures",
   "rent_revisions",
@@ -234,24 +234,37 @@ for (const p of procedureSeeds) {
 }
 
 // ---------------------------------------------------------------- 設備・修繕
-insert("equipment", {
-  id: "eq_202_ac",
-  organization_id: ORG_ID,
-  unit_id: "unit_202",
-  location_note: null,
-  category: "エアコン",
-  maker: "架空電機",
-  model_number: "XX-2019A",
-  installed_on: "2019-06-01",
-  expected_life_years: 12,
-  ...stamps(),
-});
+// 設備の実施記録。履歴として積み、「現在」は最新の1件から導出する
+const equipmentSeeds = [
+  ["unit_101", "water_heater", "2016-03-10", "架空給湯", "GH-2016", 180000],
+  ["unit_101", "air_conditioner", "2021-07-02", "架空電機", "AC-2021", 95000],
+  ["unit_101", "drain_cleaning", "2024-11-05", null, null, 12000],
+  ["unit_202", "air_conditioner", "2013-05-20", "架空電機", "AC-2013", 88000],
+  ["unit_202", "air_conditioner", "2024-06-18", "架空電機", "AC-2024", 112000],
+  ["unit_202", "ih_cooktop", "2019-09-01", "架空電機", "IH-2019", 76000],
+  ["unit_305", "water_heater", "2012-02-14", "架空給湯", "GH-2012", 165000],
+  ["unit_305", "drain_cleaning", "2025-10-20", null, null, 12000],
+];
+
+for (const [unitId, category, performedOn, maker, modelNumber, cost] of equipmentSeeds) {
+  insert("equipment_records", {
+    id: `eq_${unitId}_${category}_${performedOn}`,
+    organization_id: ORG_ID,
+    unit_id: unitId,
+    category,
+    performed_on: performedOn,
+    maker,
+    model_number: modelNumber,
+    cost,
+    note: null,
+    ...stamps(),
+  });
+}
 
 const workOrderSeeds = [
   {
     id: "wo_1",
     unit_id: "unit_102",
-    equipment_id: null,
     title: "給湯器の不具合",
     description: "お湯が出ないと管理会社経由で連絡あり",
     handler: "vendor",
@@ -265,7 +278,6 @@ const workOrderSeeds = [
   {
     id: "wo_2",
     unit_id: null,
-    equipment_id: null,
     title: "1F 共用灯の交換",
     description: "廊下の照明が1本切れている",
     handler: "self",
@@ -279,7 +291,6 @@ const workOrderSeeds = [
   {
     id: "wo_3",
     unit_id: "unit_202",
-    equipment_id: "eq_202_ac",
     title: "エアコンの効きが悪い",
     description: "業者に点検を依頼し、ガス補充で対応",
     handler: "vendor",
@@ -298,7 +309,6 @@ for (const w of workOrderSeeds) {
     id: w.id,
     organization_id: ORG_ID,
     unit_id: w.unit_id,
-    equipment_id: w.equipment_id,
     location_note: w.unit_id ? null : "1F 廊下",
     title: w.title,
     description: w.description,

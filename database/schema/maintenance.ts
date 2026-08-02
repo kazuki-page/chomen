@@ -5,41 +5,6 @@ import { organizations } from "./organizations";
 import { units } from "./properties";
 
 /**
- * 設備台帳。
- *
- * 初期に全件を登録しない。40室 × 設備数の一括入力は必ず破綻するため、
- * 修繕案件の登録時に未登録の設備をその場で作成できる導線を用意し、
- * 対応したものから台帳が育つ形にする。
- *
- * 型番の手入力は必須にしない（銘板の写真だけで台帳として成立させる）。
- */
-export const equipment = sqliteTable(
-  "equipment",
-  {
-    id: primaryId(),
-    organizationId: text("organization_id")
-      .notNull()
-      .references(() => organizations.id, { onDelete: "cascade" }),
-    /** null = 共用部 */
-    unitId: text("unit_id").references(() => units.id, { onDelete: "cascade" }),
-    /** 共用部の場所（「1F 廊下」等） */
-    locationNote: text("location_note"),
-    /** エアコン / 給湯器 / コンロ / 換気扇 等 */
-    category: text("category").notNull(),
-    maker: text("maker"),
-    modelNumber: text("model_number"),
-    installedOn: dateOnly("installed_on"),
-    /** 交換目安年数。通知はせず、経過年数一覧の算出に使う */
-    expectedLifeYears: integer("expected_life_years"),
-    ...timestamps,
-  },
-  (t) => [
-    index("equipment_org_idx").on(t.organizationId),
-    index("equipment_unit_idx").on(t.unitId),
-  ],
-);
-
-/**
  * 修繕案件。
  *
  * 不具合連絡は管理会社経由で入り、その後
@@ -61,9 +26,6 @@ export const workOrders = sqliteTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     /** null = 共用部 */
     unitId: text("unit_id").references(() => units.id, { onDelete: "set null" }),
-    equipmentId: text("equipment_id").references(() => equipment.id, {
-      onDelete: "set null",
-    }),
     locationNote: text("location_note"),
     title: text("title").notNull(),
     description: text("description"),
@@ -108,7 +70,7 @@ export const attachments = sqliteTable(
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
     entityType: text("entity_type", {
-      enum: ["work_order", "equipment"],
+      enum: ["work_order", "equipment_record"],
     }).notNull(),
     entityId: text("entity_id").notNull(),
     r2Key: text("r2_key").notNull(),

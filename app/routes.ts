@@ -9,6 +9,8 @@ export default [
   route("buildings/new", "routes/building-new.tsx"),
   route("buildings/:buildingId", "routes/building.tsx"),
   route("procedures/:procedureId", "routes/procedure.tsx"),
+  route("equipment", "routes/equipment.tsx"),
+  route("equipment/new", "routes/equipment-new.tsx"),
   route("work-orders", "routes/work-orders.tsx"),
   route("work-orders/new", "routes/work-order-new.tsx"),
   route("work-orders/:workOrderId", "routes/work-order.tsx"),

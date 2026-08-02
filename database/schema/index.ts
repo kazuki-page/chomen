@@ -5,3 +5,4 @@ export * from "./properties";
 export * from "./leases";
 export * from "./procedures";
 export * from "./maintenance";
+export * from "./equipment-records";

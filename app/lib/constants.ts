@@ -8,6 +8,35 @@
 /** 修繕案件を「放置」とみなす日数 */
 export const STALE_THRESHOLD_DAYS = 14;
 
+/**
+ * 設備記録の種別。
+ *
+ * 定型的に「前回いつ・どの型番でやったか」を追いたいものだけを並べる。
+ * 突発的な不具合は形が決まらないので、こちらではなく修繕タブで扱う。
+ *
+ * `hasModel` が false の種別は型番・メーカー欄を出さない（排水管洗浄など）。
+ */
+export const EQUIPMENT_CATEGORIES = [
+  { value: "water_heater", label: "給湯器", hasModel: true },
+  { value: "air_conditioner", label: "エアコン", hasModel: true },
+  { value: "ih_cooktop", label: "IHコンロ", hasModel: true },
+  { value: "drain_cleaning", label: "排水管洗浄", hasModel: false },
+  { value: "other", label: "その他", hasModel: true },
+] as const;
+
+export type EquipmentCategory = (typeof EQUIPMENT_CATEGORIES)[number]["value"];
+
+export const EQUIPMENT_CATEGORY_LABELS = Object.fromEntries(
+  EQUIPMENT_CATEGORIES.map((c) => [c.value, c.label]),
+) as Record<EquipmentCategory, string>;
+
+/** 設備マトリクスのセルを引くためのキー。画面とサーバーの双方で使う */
+export const matrixKey = (unitId: string, category: string) => `${unitId}:${category}`;
+
+export function categoryHasModel(value: EquipmentCategory): boolean {
+  return EQUIPMENT_CATEGORIES.find((c) => c.value === value)?.hasModel ?? true;
+}
+
 /** 契約の一括登録で期待する列の順番。見出し行があれば読み飛ばすが、並び順は固定 */
 export const IMPORT_COLUMNS = [
   "部屋番号",

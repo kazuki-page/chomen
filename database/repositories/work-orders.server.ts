@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, like, ne, sql } from "drizzle-orm";
 
 import {
   HANDLER_LABELS,
@@ -64,10 +64,18 @@ export async function listOpenWorkOrders(
   return rows.map((r) => toListItem(r, now));
 }
 
-/** 修繕一覧。status / unitId を省略すると絞り込まない */
+/**
+ * 修繕一覧。status / unitId / year を省略すると絞り込まない。
+ * year は発生日の暦年（1月〜12月）で絞る。
+ */
 export async function listWorkOrders(
   ctx: OrgContext,
-  { now, status, unitId }: { now: Date; status?: WorkOrderStatus; unitId?: string },
+  {
+    now,
+    status,
+    unitId,
+    year,
+  }: { now: Date; status?: WorkOrderStatus; unitId?: string; year?: number },
 ): Promise<WorkOrderListItem[]> {
   const rows = await selectList(ctx)
     .where(
@@ -75,11 +83,25 @@ export async function listWorkOrders(
         eq(workOrders.organizationId, ctx.organizationId),
         status ? eq(workOrders.status, status) : undefined,
         unitId ? eq(workOrders.unitId, unitId) : undefined,
+        year ? like(workOrders.occurredOn, `${year}-%`) : undefined,
       ),
     )
     .orderBy(desc(workOrders.occurredOn));
 
   return rows.map((r) => toListItem(r, now));
+}
+
+/** 絞り込みの選択肢に使う、記録が存在する年の一覧（新しい順） */
+export async function listWorkOrderYears(ctx: OrgContext): Promise<number[]> {
+  const rows = await ctx.db
+    .selectDistinct({ year: sql<string>`substr(${workOrders.occurredOn}, 1, 4)` })
+    .from(workOrders)
+    .where(eq(workOrders.organizationId, ctx.organizationId));
+
+  return rows
+    .map((r) => Number(r.year))
+    .filter((y) => Number.isFinite(y))
+    .sort((a, b) => b - a);
 }
 
 export async function getWorkOrder(

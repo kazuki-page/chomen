@@ -1,12 +1,13 @@
 import { Form, Link, redirect } from "react-router";
 
+import { listEquipmentForUnit } from "@db/repositories/equipment.server";
 import { listProceduresForUnit } from "@db/repositories/procedures.server";
 import { getUnitDetail, updateListing } from "@db/repositories/units.server";
 import { listWorkOrders } from "@db/repositories/work-orders.server";
 import { registerExistingLease } from "@db/services/leases.server";
 import { startProcedure } from "@db/services/procedures.server";
 import { renameUnit } from "@db/services/units.server";
-import { WORK_ORDER_STATUS_LABELS } from "~/lib/constants";
+import { EQUIPMENT_CATEGORIES, WORK_ORDER_STATUS_LABELS } from "~/lib/constants";
 import { approximateAge, formatJa, todayInTokyo } from "~/lib/date";
 import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/unit";
@@ -23,12 +24,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const unit = await getUnitDetail(ctx, params.unitId, { asOf: today });
   if (!unit) throw new Response("見つかりません", { status: 404 });
 
-  const [procedures, workOrders] = await Promise.all([
+  const [procedures, workOrders, equipment] = await Promise.all([
     listProceduresForUnit(ctx, unit.id),
     listWorkOrders(ctx, { now: new Date(), unitId: unit.id }),
+    listEquipmentForUnit(ctx, unit.id),
   ]);
 
-  return { unit, procedures, workOrders, today };
+  return { unit, procedures, workOrders, equipment, today };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -89,7 +91,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
-  const { unit, procedures, workOrders, today } = loaderData;
+  const { unit, procedures, workOrders, equipment, today } = loaderData;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6 pb-16">
@@ -189,6 +191,10 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
             ))}
           </ul>
         )}
+      </Section>
+
+      <Section title="設備">
+        <EquipmentSection unitId={unit.id} records={equipment} />
       </Section>
 
       <Section title="修繕">
@@ -389,6 +395,47 @@ function MoveOutForm({ today }: { today: string }) {
         </button>
       </Form>
     </details>
+  );
+}
+
+/**
+ * その部屋の設備。種別ごとに「前回」だけを出す。
+ * 退去して空室になったときに、交換や排水管洗浄の要否を判断する材料になる。
+ */
+function EquipmentSection({
+  unitId,
+  records,
+}: {
+  unitId: string;
+  records: { id: string; category: string; performedOn: string; modelNumber: string | null }[];
+}) {
+  return (
+    <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+      {EQUIPMENT_CATEGORIES.map((c) => {
+        const latest = records.find((r) => r.category === c.value);
+        return (
+          <li key={c.value}>
+            <Link
+              to={`/equipment/new?unitId=${unitId}&category=${c.value}`}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50"
+            >
+              <span className="w-28 shrink-0 font-medium">{c.label}</span>
+              {latest ? (
+                <>
+                  <span className="tabular-nums">{formatJa(latest.performedOn)}</span>
+                  {latest.modelNumber && (
+                    <span className="min-w-0 truncate text-slate-500">{latest.modelNumber}</span>
+                  )}
+                </>
+              ) : (
+                <span className="text-slate-400">記録なし</span>
+              )}
+              <span className="ml-auto shrink-0 text-sm text-sky-700">＋ 記録</span>
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

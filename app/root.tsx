@@ -50,6 +50,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
         <nav className="mx-auto flex max-w-4xl gap-2 px-4 py-2">
           <NavItem to="/">ホーム</NavItem>
           <NavItem to="/units">部屋</NavItem>
+          <NavItem to="/equipment">設備</NavItem>
           <NavItem to="/work-orders">修繕</NavItem>
           <NavItem to="/settings">設定</NavItem>
         </nav>

@@ -1,6 +1,11 @@
-import { Link, useSearchParams } from "react-router";
+import { Form, Link, useSearchParams } from "react-router";
 
-import { listWorkOrders, type WorkOrderListItem } from "@db/repositories/work-orders.server";
+import { listUnitOptions } from "@db/repositories/units.server";
+import {
+  listWorkOrderYears,
+  listWorkOrders,
+  type WorkOrderListItem,
+} from "@db/repositories/work-orders.server";
 import {
   WORK_ORDER_STATUS_LABELS,
   WORK_ORDER_STATUS_OPTIONS,
@@ -22,14 +27,30 @@ export async function loader({ request }: Route.LoaderArgs) {
     : undefined;
 
   const { ctx } = await requireOrg(request);
-  const items = await listWorkOrders(ctx, { now: new Date(), status });
-  return { items };
+  const unitId = url.searchParams.get("unitId") || undefined;
+  const year = Number(url.searchParams.get("year")) || undefined;
+
+  const [items, units, years] = await Promise.all([
+    listWorkOrders(ctx, { now: new Date(), status, unitId, year }),
+    listUnitOptions(ctx),
+    listWorkOrderYears(ctx),
+  ]);
+
+  return { items, units, years, unitId: unitId ?? "", year: year ?? 0 };
 }
 
 export default function WorkOrders({ loaderData }: Route.ComponentProps) {
-  const { items } = loaderData;
+  const { items, units, years, unitId, year } = loaderData;
   const [params] = useSearchParams();
   const active = params.get("status") ?? "";
+
+  /** 他の絞り込みを保ったままリンクを作る */
+  const withParam = (key: string, value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    return `/work-orders${next.toString() ? `?${next}` : ""}`;
+  };
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-6 pb-16">
@@ -44,16 +65,58 @@ export default function WorkOrders({ loaderData }: Route.ComponentProps) {
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <FilterLink to="/work-orders" label="すべて" active={active === ""} />
+        <FilterLink to={withParam("status", "")} label="すべて" active={active === ""} />
         {WORK_ORDER_STATUS_OPTIONS.map((o) => (
           <FilterLink
             key={o.value}
-            to={`/work-orders?status=${o.value}`}
+            to={withParam("status", o.value)}
             label={o.label}
             active={active === o.value}
           />
         ))}
       </div>
+
+      <Form method="get" className="mt-3 flex flex-wrap gap-2">
+        {active && <input type="hidden" name="status" value={active} />}
+        <select
+          name="unitId"
+          defaultValue={unitId}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-base"
+        >
+          <option value="">すべての部屋</option>
+          {units.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.type === "parking" ? `駐車場 ${u.code}` : `${u.code} 号室`}
+            </option>
+          ))}
+        </select>
+        <select
+          name="year"
+          defaultValue={year || ""}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-base tabular-nums"
+        >
+          <option value="">すべての年</option>
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y}年
+            </option>
+          ))}
+        </select>
+        <button
+          type="submit"
+          className="rounded-lg border-2 border-slate-800 px-4 py-2 text-base font-bold hover:bg-slate-100"
+        >
+          絞り込む
+        </button>
+        {(unitId || year) && (
+          <Link
+            to={withParam("status", active).replace(/[?&](unitId|year)=[^&]*/g, "")}
+            className="rounded-lg px-3 py-2 text-base text-slate-500 hover:bg-slate-100"
+          >
+            解除
+          </Link>
+        )}
+      </Form>
 
       {items.length === 0 ? (
         <p className="mt-6 rounded-xl border border-dashed border-slate-300 px-4 py-8 text-center text-slate-500">
