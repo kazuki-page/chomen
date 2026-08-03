@@ -30,6 +30,20 @@ export function addYears(date: IsoDate, years: number): IsoDate {
   return format(targetYear, m, day);
 }
 
+/**
+ * Nか月後の日付。更新手続きを「予定日の何か月前から出すか」の判定に使う。
+ * 文字列のまま計算するのでタイムゾーンによるずれが起きない。
+ * 加算先に存在しない日（1/31の1か月後など）はその月の末日に丸める。
+ */
+export function addMonths(date: IsoDate, months: number): IsoDate {
+  const [y, m, d] = date.split("-").map(Number);
+  const total = (y * 12 + (m - 1)) + months;
+  const targetYear = Math.floor(total / 12);
+  const targetMonth = (total % 12) + 1;
+  const day = Math.min(d, daysInMonth(targetYear, targetMonth));
+  return format(targetYear, targetMonth, day);
+}
+
 /** 2つの日付の差を日数で返す（a - b） */
 export function diffInDays(a: IsoDate, b: IsoDate): number {
   return Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86_400_000);

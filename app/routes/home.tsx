@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 
 import {
+  listLaterRenewals,
   listOpenProcedures,
   listProceduresInMonth,
   type ProcedureSummary,
@@ -10,8 +11,8 @@ import {
   listOpenWorkOrders,
   type WorkOrderListItem,
 } from "@db/repositories/work-orders.server";
-import { STALE_THRESHOLD_DAYS } from "~/lib/constants";
-import { formatJa, monthRange, todayInTokyo } from "~/lib/date";
+import { RENEWAL_LEAD_MONTHS, STALE_THRESHOLD_DAYS } from "~/lib/constants";
+import { addMonths, formatJa, monthRange, todayInTokyo } from "~/lib/date";
 import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/home";
 
@@ -24,11 +25,15 @@ export async function loader({ request }: Route.LoaderArgs) {
   const now = new Date();
   const asOf = todayInTokyo(now);
 
-  const [procedures, workOrders, units, thisMonth] = await Promise.all([
-    listOpenProcedures(ctx),
+  // 更新手続きは予定日の RENEWAL_LEAD_MONTHS か月前から「やること」に出す
+  const renewalUntil = addMonths(asOf, RENEWAL_LEAD_MONTHS);
+
+  const [procedures, workOrders, units, thisMonth, laterRenewals] = await Promise.all([
+    listOpenProcedures(ctx, { renewalUntil }),
     listOpenWorkOrders(ctx, { now }),
     listUnits(ctx, { asOf }),
     listProceduresInMonth(ctx, monthRange(asOf)),
+    listLaterRenewals(ctx, { after: renewalUntil }),
   ]);
 
   return {
@@ -36,11 +41,12 @@ export async function loader({ request }: Route.LoaderArgs) {
     workOrders,
     vacant: units.filter((u) => u.isVacant),
     thisMonth,
+    laterRenewals,
   };
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { procedures, workOrders, vacant, thisMonth } = loaderData;
+  const { procedures, workOrders, vacant, thisMonth, laterRenewals } = loaderData;
   const todoCount = procedures.length + workOrders.length;
   const staleCount = workOrders.filter((w) => w.isStale).length;
 
@@ -68,6 +74,33 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           </ul>
         )}
       </Section>
+
+      {laterRenewals.length > 0 && (
+        <details className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
+          <summary className="cursor-pointer text-base font-medium text-slate-600">
+            先の更新予定（{laterRenewals.length}件）
+          </summary>
+          <p className="mt-2 text-sm text-slate-500">
+            予定日の{RENEWAL_LEAD_MONTHS}か月前になると「やること」に出ます。
+          </p>
+          <ul className="mt-2 divide-y divide-slate-200">
+            {laterRenewals.map((r) => (
+              <li key={r.id}>
+                <Link
+                  to={`/procedures/${r.id}`}
+                  className="flex items-center gap-3 py-2 hover:bg-slate-50"
+                >
+                  <span className="w-28 shrink-0 text-slate-500 tabular-nums">
+                    {formatJa(r.scheduledOn)}
+                  </span>
+                  <span className="font-bold tabular-nums">{r.unitCode}</span>
+                  <span className="min-w-0 truncate text-slate-600">{r.tenantName}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <Section title="空室" count={vacant.length}>
         {vacant.length === 0 ? (

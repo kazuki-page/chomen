@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, lte, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lte, ne, or } from "drizzle-orm";
 
 import type { IsoDate } from "~/lib/date";
 import type { OrgContext } from "../context.server";
@@ -29,8 +29,18 @@ export type ProcedureDetail = ProcedureSummary & {
   }[];
 };
 
-/** 未完了の手続き。ホーム画面の「やること」に使う */
-export async function listOpenProcedures(ctx: OrgContext): Promise<ProcedureSummary[]> {
+/**
+ * 未完了の手続き。ホーム画面の「やること」に使う。
+ *
+ * 更新手続きは契約時に2年先ぶんが自動生成されるため、そのまま並べると
+ * 全部屋ぶんが常時表示されて画面が使い物にならない。
+ * **予定日が `renewalUntil` 以内のものだけ**を出す（入居・退居は常に出す）。
+ * 着手済み（in_progress）の更新は、先の予定でも隠さない。
+ */
+export async function listOpenProcedures(
+  ctx: OrgContext,
+  { renewalUntil }: { renewalUntil: IsoDate },
+): Promise<ProcedureSummary[]> {
   const rows = await ctx.db
     .select({
       id: procedures.id,
@@ -44,7 +54,18 @@ export async function listOpenProcedures(ctx: OrgContext): Promise<ProcedureSumm
     .innerJoin(units, eq(units.id, leases.unitId))
     .leftJoin(tenants, eq(tenants.id, leases.tenantId))
     .where(
-      and(eq(procedures.organizationId, ctx.organizationId), ne(procedures.status, "done")),
+      and(
+        eq(procedures.organizationId, ctx.organizationId),
+        ne(procedures.status, "done"),
+        or(
+          // 入居・退居は期限に関係なく進行中の作業なので常に出す
+          ne(procedures.type, "renewal"),
+          eq(procedures.status, "in_progress"),
+          lte(procedures.scheduledOn, renewalUntil),
+          // 予定日が未設定のものを取りこぼさない
+          isNull(procedures.scheduledOn),
+        ),
+      ),
     )
     .orderBy(asc(procedures.scheduledOn));
 
@@ -64,6 +85,36 @@ export async function listOpenProcedures(ctx: OrgContext): Promise<ProcedureSumm
     tenantName: r.tenantName,
     ...(progress.get(r.id) ?? { nextItemLabel: null, doneCount: 0, totalCount: 0 }),
   }));
+}
+
+/**
+ * 「やること」からは隠している、先の更新予定。
+ * 非表示にするだけで辿れなくなると困るので、ホームから折りたたみで見られるようにする。
+ */
+export async function listLaterRenewals(
+  ctx: OrgContext,
+  { after }: { after: IsoDate },
+): Promise<{ id: string; scheduledOn: IsoDate | null; unitCode: string; tenantName: string | null }[]> {
+  return ctx.db
+    .select({
+      id: procedures.id,
+      scheduledOn: procedures.scheduledOn,
+      unitCode: units.code,
+      tenantName: tenants.name,
+    })
+    .from(procedures)
+    .innerJoin(leases, eq(leases.id, procedures.leaseId))
+    .innerJoin(units, eq(units.id, leases.unitId))
+    .leftJoin(tenants, eq(tenants.id, leases.tenantId))
+    .where(
+      and(
+        eq(procedures.organizationId, ctx.organizationId),
+        eq(procedures.type, "renewal"),
+        eq(procedures.status, "todo"),
+        gt(procedures.scheduledOn, after),
+      ),
+    )
+    .orderBy(asc(procedures.scheduledOn));
 }
 
 /** 当月に予定のある手続き */
