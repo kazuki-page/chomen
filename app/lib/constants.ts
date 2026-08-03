@@ -13,6 +13,15 @@
  */
 export const RENEWAL_LEAD_MONTHS = 6;
 
+/** 家賃改定の事由 */
+export const RENT_REASON_LABELS = {
+  initial: "新規契約",
+  renewal: "更新",
+  adjustment: "改定",
+} as const;
+
+export type RentReason = keyof typeof RENT_REASON_LABELS;
+
 /** 修繕案件を「放置」とみなす日数 */
 export const STALE_THRESHOLD_DAYS = 14;
 

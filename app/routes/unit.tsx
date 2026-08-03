@@ -2,13 +2,22 @@ import { Form, Link, redirect } from "react-router";
 
 import { listEquipmentForUnit } from "@db/repositories/equipment.server";
 import { listProceduresForUnit } from "@db/repositories/procedures.server";
-import { getUnitDetail, updateListing } from "@db/repositories/units.server";
+import {
+  getUnitDetail,
+  listRentHistoryForUnit,
+  updateListing,
+  type RentHistoryRow,
+} from "@db/repositories/units.server";
 import { listWorkOrders } from "@db/repositories/work-orders.server";
 import { registerExistingLease } from "@db/services/leases.server";
 import { startProcedure } from "@db/services/procedures.server";
 import { renameUnit } from "@db/services/units.server";
-import { EQUIPMENT_CATEGORIES, WORK_ORDER_STATUS_LABELS } from "~/lib/constants";
-import { approximateAge, formatJa, todayInTokyo } from "~/lib/date";
+import {
+  EQUIPMENT_CATEGORIES,
+  RENT_REASON_LABELS,
+  WORK_ORDER_STATUS_LABELS,
+} from "~/lib/constants";
+import { approximateAge, formatJa, formatSlash, todayInTokyo } from "~/lib/date";
 import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/unit";
 
@@ -24,13 +33,14 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const unit = await getUnitDetail(ctx, params.unitId, { asOf: today });
   if (!unit) throw new Response("見つかりません", { status: 404 });
 
-  const [procedures, workOrders, equipment] = await Promise.all([
+  const [procedures, workOrders, equipment, rentHistory] = await Promise.all([
     listProceduresForUnit(ctx, unit.id),
     listWorkOrders(ctx, { now: new Date(), unitId: unit.id }),
     listEquipmentForUnit(ctx, unit.id),
+    listRentHistoryForUnit(ctx, unit.id),
   ]);
 
-  return { unit, procedures, workOrders, equipment, today };
+  return { unit, procedures, workOrders, equipment, rentHistory, today };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -91,7 +101,7 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
-  const { unit, procedures, workOrders, equipment, today } = loaderData;
+  const { unit, procedures, workOrders, equipment, rentHistory, today } = loaderData;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6 pb-16">
@@ -192,6 +202,12 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
           </ul>
         )}
       </Section>
+
+      {rentHistory.length > 0 && (
+        <Section title="家賃の履歴">
+          <RentHistory rows={rentHistory} />
+        </Section>
+      )}
 
       <Section title="設備">
         <EquipmentSection unitId={unit.id} records={equipment} />
@@ -395,6 +411,61 @@ function MoveOutForm({ today }: { today: string }) {
         </button>
       </Form>
     </details>
+  );
+}
+
+/**
+ * 家賃の変遷。**部屋単位**（歴代の入居者を通して）で出す。
+ * 空室のときに「前の入居者はいくらだったか」が見えないと募集家賃を決められないため。
+ *
+ * 増減は1つ前（古い側）のレコードとの差。最初の契約には差が無い。
+ */
+function RentHistory({ rows }: { rows: RentHistoryRow[] }) {
+  return (
+    <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+      {rows.map((row, i) => {
+        // rows は新しい順。1つ後ろの要素が「前回の家賃」になる
+        const previous = rows[i + 1];
+        const diff = previous ? row.amount - previous.amount : null;
+
+        return (
+          <li key={row.id} className="flex flex-wrap items-baseline gap-x-3 px-4 py-3">
+            <span className="w-24 shrink-0 text-slate-500 tabular-nums">
+              {formatSlash(row.effectiveFrom)}
+            </span>
+            <span className="text-lg font-bold tabular-nums">
+              {row.amount.toLocaleString("ja-JP")}円
+            </span>
+
+            {diff !== null && diff !== 0 && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-sm font-bold tabular-nums ${
+                  diff > 0 ? "bg-rose-100 text-rose-800" : "bg-sky-100 text-sky-800"
+                }`}
+              >
+                {diff > 0 ? "増額" : "減額"} {diff > 0 ? "+" : "−"}
+                {Math.abs(diff).toLocaleString("ja-JP")}
+              </span>
+            )}
+            {diff === 0 && (
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-sm text-slate-600">
+                据え置き
+              </span>
+            )}
+
+            <span className="text-sm text-slate-500">{RENT_REASON_LABELS[row.reason]}</span>
+            {!row.confirmed && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-sm font-medium text-amber-800">
+                予定
+              </span>
+            )}
+            {row.tenantName && (
+              <span className="ml-auto text-sm text-slate-500">{row.tenantName}</span>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

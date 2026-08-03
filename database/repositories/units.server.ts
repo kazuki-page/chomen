@@ -1,8 +1,8 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import type { IsoDate } from "~/lib/date";
 import type { OrgContext } from "../context.server";
-import { leases, tenants, units } from "../schema";
+import { leases, rentRevisions, tenants, units } from "../schema";
 
 export type UnitListItem = {
   id: string;
@@ -166,6 +166,44 @@ export async function getUnitDetail(
             rent: row.currentRent,
           },
   };
+}
+
+export type RentHistoryRow = {
+  id: string;
+  effectiveFrom: IsoDate;
+  amount: number;
+  reason: "initial" | "renewal" | "adjustment";
+  confirmed: boolean;
+  tenantName: string | null;
+};
+
+/**
+ * その部屋の家賃の変遷。**契約単位ではなく部屋単位**で返す。
+ *
+ * 募集家賃を決めるのは部屋が空いたときだが、契約単位だと空室の部屋には
+ * 有効な契約が無いため何も出せない。一番見たい場面で見えなくなる。
+ * 歴代の入居者を通した推移が見えれば、次の募集価格を決める材料になる。
+ */
+export async function listRentHistoryForUnit(
+  ctx: OrgContext,
+  unitId: string,
+): Promise<RentHistoryRow[]> {
+  return ctx.db
+    .select({
+      id: rentRevisions.id,
+      effectiveFrom: rentRevisions.effectiveFrom,
+      amount: rentRevisions.amount,
+      reason: rentRevisions.reason,
+      confirmed: rentRevisions.confirmed,
+      tenantName: tenants.name,
+    })
+    .from(rentRevisions)
+    .innerJoin(leases, eq(leases.id, rentRevisions.leaseId))
+    .leftJoin(tenants, eq(tenants.id, leases.tenantId))
+    .where(
+      and(eq(rentRevisions.organizationId, ctx.organizationId), eq(leases.unitId, unitId)),
+    )
+    .orderBy(desc(rentRevisions.effectiveFrom));
 }
 
 /**
