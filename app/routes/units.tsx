@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { listBuildings } from "@db/repositories/buildings.server";
 import { listUnits, summarize, type UnitListItem } from "@db/repositories/units.server";
 import { SENIOR_AGE, approximateAge, formatJa, todayInTokyo } from "~/lib/date";
+import { summarizeTenantAges } from "~/lib/tenant-age";
 import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/units";
 
@@ -19,17 +20,11 @@ export async function loader({ request }: Route.LoaderArgs) {
 
   const params = new URL(request.url).searchParams;
   const today = todayInTokyo();
-  const ages = items
-    .map((i) => approximateAge(i.tenantBirthYear, today))
-    .filter((a): a is number => a !== null);
 
   return {
     items,
     today,
-    ageSummary: {
-      known: ages.length,
-      seniors: ages.filter((a) => a >= SENIOR_AGE).length,
-    },
+    ageSummary: summarizeTenantAges(items, today),
     summary: summarize(items),
     hasBuilding: buildings.length > 0,
     created: Number(params.get("created")) || 0,
