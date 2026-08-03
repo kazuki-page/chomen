@@ -99,11 +99,7 @@ export default function Equipment({ loaderData }: Route.ComponentProps) {
                         }`}
                       >
                         {record ? (
-                          <Cell
-                            performedOn={record.performedOn}
-                            modelNumber={record.modelNumber}
-                            thisYear={thisYear}
-                          />
+                          <Cell performedOn={record.performedOn} thisYear={thisYear} />
                         ) : (
                           <span className="text-base">＋</span>
                         )}
@@ -126,28 +122,20 @@ export default function Equipment({ loaderData }: Route.ComponentProps) {
   );
 }
 
-function Cell({
-  performedOn,
-  modelNumber,
-  thisYear,
-}: {
-  performedOn: string;
-  modelNumber: string | null;
-  thisYear: number;
-}) {
+/**
+ * 一覧は「いつやったか」を並べて見るための画面なので、日付と経過年数だけを出す。
+ * 型番は行が伸びて一覧性が落ちるため出さない。
+ * セルを押せば履歴（型番つき）が見られるので、情報は辿れる。
+ */
+function Cell({ performedOn, thisYear }: { performedOn: string; thisYear: number }) {
   const years = thisYear - Number(performedOn.slice(0, 4));
   const tone =
     years >= 10 ? "text-rose-700" : years >= 5 ? "text-amber-700" : "text-slate-700";
 
   return (
-    <>
-      <span className={`block whitespace-nowrap font-medium tabular-nums ${tone}`}>
-        {performedOn.slice(0, 7).replace("-", "/")}
-        <span className="ml-1 text-sm">（{years}年）</span>
-      </span>
-      {modelNumber && (
-        <span className="block truncate text-sm text-slate-500">{modelNumber}</span>
-      )}
-    </>
+    <span className={`block whitespace-nowrap font-medium tabular-nums ${tone}`}>
+      {performedOn.slice(0, 7).replace("-", "/")}
+      <span className="ml-1 text-sm">（{years}年）</span>
+    </span>
   );
 }
