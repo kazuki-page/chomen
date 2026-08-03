@@ -19,11 +19,12 @@ export async function loader({ request }: Route.LoaderArgs) {
     units: matrix.units,
     latest: Array.from(matrix.latest.entries()),
     today: todayInTokyo(),
+    imported: Number(new URL(request.url).searchParams.get("imported")) || 0,
   };
 }
 
 export default function Equipment({ loaderData }: Route.ComponentProps) {
-  const { units, latest, today } = loaderData;
+  const { units, latest, today, imported } = loaderData;
   const map = new Map(latest);
   const thisYear = Number(today.slice(0, 4));
 
@@ -40,7 +41,30 @@ export default function Equipment({ loaderData }: Route.ComponentProps) {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 pb-16">
-      <h1 className="text-2xl font-bold">設備</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">設備</h1>
+        <div className="flex shrink-0 gap-2">
+          <Link
+            to="/equipment/import"
+            className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-medium hover:bg-slate-100"
+          >
+            一括登録
+          </Link>
+          <Link
+            to="/equipment/new"
+            className="rounded-xl bg-sky-600 px-4 py-3 text-base font-bold text-white hover:bg-sky-700"
+          >
+            ＋ 記録
+          </Link>
+        </div>
+      </div>
+
+      {imported > 0 && (
+        <p className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base text-emerald-900">
+          {imported}件の設備記録を登録しました
+        </p>
+      )}
+
       <p className="mt-2 text-base text-slate-600">
         各部屋の<strong>前回の交換・実施</strong>を表示しています。
         セルを押すと記録の追加と履歴の確認ができます。

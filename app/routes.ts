@@ -11,6 +11,7 @@ export default [
   route("procedures/:procedureId", "routes/procedure.tsx"),
   route("equipment", "routes/equipment.tsx"),
   route("equipment/new", "routes/equipment-new.tsx"),
+  route("equipment/import", "routes/equipment-import.tsx"),
   route("work-orders", "routes/work-orders.tsx"),
   route("work-orders/new", "routes/work-order-new.tsx"),
   route("work-orders/:workOrderId", "routes/work-order.tsx"),

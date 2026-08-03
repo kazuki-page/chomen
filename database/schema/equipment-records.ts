@@ -31,7 +31,15 @@ export const equipmentRecords = sqliteTable(
       .notNull()
       .references(() => units.id, { onDelete: "cascade" }),
     category: text("category", {
-      enum: ["water_heater", "air_conditioner", "ih_cooktop", "drain_cleaning", "other"],
+      enum: [
+        "water_heater",
+        "air_conditioner",
+        "ih_cooktop",
+        "bath_fan",
+        "kitchen_fan",
+        "drain_cleaning",
+        "other",
+      ],
     }).notNull(),
     /** 交換日・実施日 */
     performedOn: dateOnly("performed_on").notNull(),

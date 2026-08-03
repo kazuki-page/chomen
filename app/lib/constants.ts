@@ -37,6 +37,8 @@ export const EQUIPMENT_CATEGORIES = [
   { value: "water_heater", label: "給湯器", hasModel: true },
   { value: "air_conditioner", label: "エアコン", hasModel: true },
   { value: "ih_cooktop", label: "IHコンロ", hasModel: true },
+  { value: "bath_fan", label: "浴室換気扇", hasModel: true },
+  { value: "kitchen_fan", label: "台所換気扇", hasModel: true },
   { value: "drain_cleaning", label: "排水管洗浄", hasModel: false },
   { value: "other", label: "その他", hasModel: true },
 ] as const;
@@ -53,6 +55,20 @@ export const matrixKey = (unitId: string, category: string) => `${unitId}:${cate
 export function categoryHasModel(value: EquipmentCategory): boolean {
   return EQUIPMENT_CATEGORIES.find((c) => c.value === value)?.hasModel ?? true;
 }
+
+/**
+ * 設備記録の一括登録で期待する列の順番。
+ * 6列目以降は省略できる。書き出し（CSV）も同じ並びにしてあるので往復できる。
+ */
+export const EQUIPMENT_IMPORT_COLUMNS = [
+  "部屋番号",
+  "種別",
+  "実施日",
+  "型番",
+  "費用",
+  "メーカー（省略可）",
+  "メモ（省略可）",
+] as const;
 
 /** 契約の一括登録で期待する列の順番。見出し行があれば読み飛ばすが、並び順は固定 */
 export const IMPORT_COLUMNS = [

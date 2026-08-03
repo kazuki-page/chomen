@@ -46,14 +46,15 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     case "equipment": {
       const rows = await exportEquipment(ctx);
       return csvResponse(`equipment-${today}.csv`, [
-        ["部屋番号", "種別", "実施日", "メーカー", "型番", "費用", "メモ"],
+        // 一括登録と同じ並び。書き出して直して読み込み直せる
+        ["部屋番号", "種別", "実施日", "型番", "費用", "メーカー", "メモ"],
         ...rows.map((r) => [
           r.unitCode,
           EQUIPMENT_CATEGORY_LABELS[r.category as EquipmentCategory] ?? r.category,
           r.performedOn,
-          r.maker,
           r.modelNumber,
           r.cost,
+          r.maker,
           r.note,
         ]),
       ]);
