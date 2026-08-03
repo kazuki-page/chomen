@@ -9,6 +9,7 @@ import {
   type RentHistoryRow,
 } from "@db/repositories/units.server";
 import { listWorkOrders } from "@db/repositories/work-orders.server";
+import { updateLeaseDetails } from "@db/services/lease-edit.server";
 import { registerExistingLease } from "@db/services/leases.server";
 import { startProcedure } from "@db/services/procedures.server";
 import { renameUnit } from "@db/services/units.server";
@@ -58,6 +59,28 @@ export async function action({ request, params }: Route.ActionArgs) {
       scheduledOn: String(form.get("scheduledOn") || todayInTokyo()),
     });
     return redirect(`/procedures/${procedureId}`);
+  }
+
+  if (intent === "edit_lease") {
+    const name = String(form.get("tenantName") ?? "").trim();
+    const contractDate = String(form.get("contractDate") ?? "");
+    if (!name || !contractDate) {
+      return { error: "氏名と契約日を入力してください" };
+    }
+
+    const birthYear = Number(form.get("birthYear"));
+    const rent = Number(form.get("rent"));
+
+    await updateLeaseDetails(ctx, {
+      leaseId: String(form.get("leaseId")),
+      tenantName: name,
+      birthYear: Number.isFinite(birthYear) && birthYear > 0 ? birthYear : null,
+      contractDate,
+      nextRenewalDate: String(form.get("nextRenewalDate") ?? "") || null,
+      rent: Number.isFinite(rent) && rent > 0 ? rent : null,
+    });
+
+    return redirect(`/units/${params.unitId}`);
   }
 
   if (intent === "rename") {
@@ -148,6 +171,8 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
             <Row label="契約日" value={formatJa(unit.lease.contractDate)} />
             <Row label="次回更新" value={formatJa(unit.lease.nextRenewalDate) || "—"} />
           </dl>
+
+          <EditLeaseForm lease={unit.lease} />
         </section>
       ) : (
         <>
@@ -411,6 +436,116 @@ function MoveOutForm({ today }: { today: string }) {
         </button>
       </Form>
     </details>
+  );
+}
+
+/**
+ * 契約内容の訂正。
+ *
+ * **入力を間違えたものを直すための機能**であって、契約条件の変更ではない。
+ * 家賃の改定は更新手続きから登録され履歴になるので、ここでは新しい履歴を作らず
+ * 最新の金額を書き換えるだけ。誤解を招かないよう画面にもその旨を書いておく。
+ */
+function EditLeaseForm({
+  lease,
+}: {
+  lease: {
+    id: string;
+    tenantName: string | null;
+    tenantBirthYear: number | null;
+    contractDate: string;
+    nextRenewalDate: string | null;
+    rent: number | null;
+  };
+}) {
+  return (
+    <details className="mt-4 border-t border-slate-200 pt-3">
+      <summary className="cursor-pointer text-base font-medium text-sky-700">
+        契約を編集する
+      </summary>
+      <p className="mt-2 text-sm text-slate-500">
+        入力を間違えたときの訂正用です。更新にともなう家賃の改定は、更新手続きから登録してください。
+      </p>
+
+      <Form method="post" className="mt-4 space-y-4">
+        <input type="hidden" name="intent" value="edit_lease" />
+        <input type="hidden" name="leaseId" value={lease.id} />
+
+        <EditField label="入居者の氏名">
+          <input
+            type="text"
+            name="tenantName"
+            required
+            defaultValue={lease.tenantName ?? ""}
+            className="w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+          />
+        </EditField>
+
+        <EditField label="生年" hint="西暦・任意">
+          <input
+            type="number"
+            name="birthYear"
+            inputMode="numeric"
+            defaultValue={lease.tenantBirthYear ?? ""}
+            className="w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
+          />
+        </EditField>
+
+        <EditField label="契約日">
+          <input
+            type="date"
+            name="contractDate"
+            required
+            defaultValue={lease.contractDate}
+            className="w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+          />
+        </EditField>
+
+        <EditField label="次回の更新予定日" hint="直すと更新手続きの予定日も一緒に動きます">
+          <input
+            type="date"
+            name="nextRenewalDate"
+            defaultValue={lease.nextRenewalDate ?? ""}
+            className="w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+          />
+        </EditField>
+
+        <EditField label="現在の家賃（円）" hint="履歴は増えません。最新の金額を書き換えます">
+          <input
+            type="number"
+            name="rent"
+            inputMode="numeric"
+            defaultValue={lease.rent ?? ""}
+            className="w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
+          />
+        </EditField>
+
+        <button
+          type="submit"
+          className="w-full rounded-xl bg-sky-600 px-4 py-3 text-lg font-bold text-white hover:bg-sky-700"
+        >
+          保存する
+        </button>
+      </Form>
+    </details>
+  );
+}
+
+function EditField({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="text-base font-medium text-slate-700">{label}</span>
+      {hint && <span className="mt-0.5 block text-sm text-slate-500">{hint}</span>}
+      <div className="mt-1">{children}</div>
+    </label>
   );
 }
 
