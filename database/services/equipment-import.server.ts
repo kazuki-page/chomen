@@ -1,3 +1,4 @@
+import type { BatchItem } from "drizzle-orm/batch";
 import { and, eq, inArray } from "drizzle-orm";
 
 import {
@@ -135,6 +136,23 @@ export async function previewEquipmentImport(
   };
 }
 
+/**
+ * 1文の INSERT に載せられる行数。
+ *
+ * **D1 は1つのクエリに渡せるバインド変数を100個までに制限している。**
+ * equipment_records は1行あたり11カラム（id と created_at/updated_at を含む）なので、
+ * 9行で99個、10行で110個となり超過してしまう。
+ * まとめて1文で流さず、この単位に分割して batch で実行する。
+ */
+const ROWS_PER_INSERT = 9;
+
+/** 配列を size ごとに切り分ける */
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 /** 検証を通った行だけを取り込む */
 export async function commitEquipmentImport(
   ctx: OrgContext,
@@ -146,24 +164,28 @@ export async function commitEquipmentImport(
   );
   if (valid.length === 0) return { imported: 0 };
 
-  await ctx.db.insert(equipmentRecords).values(
-    valid.map((r) => {
-      // 型番を持たない種別（排水管洗浄など）では型番・メーカーを保存しない。
-      // 単票の登録と同じ扱いにする
-      const hasModel =
-        EQUIPMENT_CATEGORIES.find((c) => c.value === r.category)?.hasModel ?? true;
-      return {
-        organizationId: ctx.organizationId,
-        unitId: r.unitId!,
-        category: r.category!,
-        performedOn: r.performedOn!,
-        modelNumber: hasModel ? r.modelNumber : null,
-        maker: hasModel ? r.maker : null,
-        cost: r.cost,
-        note: r.note,
-      };
-    }),
+  const values = valid.map((r) => {
+    // 型番を持たない種別（排水管洗浄など）では型番・メーカーを保存しない。
+    // 単票の登録と同じ扱いにする
+    const hasModel =
+      EQUIPMENT_CATEGORIES.find((c) => c.value === r.category)?.hasModel ?? true;
+    return {
+      organizationId: ctx.organizationId,
+      unitId: r.unitId!,
+      category: r.category!,
+      performedOn: r.performedOn!,
+      modelNumber: hasModel ? r.modelNumber : null,
+      maker: hasModel ? r.maker : null,
+      cost: r.cost,
+      note: r.note,
+    };
+  });
+
+  // まとめて1文で INSERT すると D1 のバインド変数上限を超える（下記参照）
+  const writes: BatchItem<"sqlite">[] = chunk(values, ROWS_PER_INSERT).map((part) =>
+    ctx.db.insert(equipmentRecords).values(part),
   );
+  await ctx.db.batch(writes as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
 
   return { imported: valid.length };
 }
