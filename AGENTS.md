@@ -100,6 +100,8 @@ npm run db:reset-auth     # ローカルのアカウントを全消去し、初�
 - `findMembershipForUser` は組織スコープを持たない唯一のクエリ。ログインユーザーの所属組織を決める処理なので原理的に絞れない。**この例外を他へ広げないこと**
 - `database/schema/auth.ts` のテーブル名・カラム名は Better Auth の既定。勝手に変えない
 - 本番では `BETTER_AUTH_SECRET` を Cloudflare のシークレットとして設定する（`npx wrangler secret put BETTER_AUTH_SECRET`）。開発は `.dev.vars`
+- 本番URLは https://oyasan.kazuki.page （独自ドメイン）。`baseURL` はリクエストのオリジンから導出しているので、ドメインを足しても認証側の変更は不要
+- 平文 HTTP は `workers/app.ts` で HTTPS へ 301 リダイレクトする。localhost は対象外
 
 ## セキュリティ上の決めごと
 

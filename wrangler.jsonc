@@ -12,6 +12,16 @@
 	 * 同じ本番 D1 を参照するので、公開面は少ないほうがよい。
 	 */
 	"preview_urls": false,
+	/**
+	 * 独自ドメイン。DNS レコードと証明書は Cloudflare が自動で用意する。
+	 * workers.dev 側は動作確認が済むまで残しておく。
+	 */
+	"routes": [
+		{
+			"pattern": "oyasan.kazuki.page",
+			"custom_domain": true
+		}
+	],
 	"observability": {
 		"enabled": true
 	},

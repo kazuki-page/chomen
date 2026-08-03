@@ -20,10 +20,21 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   // 使わない権限は明示的に落とす
   "Permissions-Policy": "geolocation=(), microphone=(), camera=(), payment=()",
+  // 次回以降はブラウザ側で HTTPS に固定させる（1年）
+  "Strict-Transport-Security": "max-age=31536000",
 };
 
 export default {
   async fetch(request) {
+    const url = new URL(request.url);
+
+    // 平文 HTTP で来たらパスワードが流れる前に HTTPS へ飛ばす。
+    // ローカル開発（localhost）は対象外。
+    if (url.protocol === "http:" && url.hostname !== "localhost") {
+      url.protocol = "https:";
+      return Response.redirect(url.toString(), 301);
+    }
+
     const response = await requestHandler(request);
 
     // Set-Cookie を壊さないよう、既存ヘッダを引き継いだ上で追加する
