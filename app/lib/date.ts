@@ -80,6 +80,12 @@ export function approximateAge(
 /** 高齢者とみなす年齢。入居者の年齢構成の把握に使う */
 export const SENIOR_AGE = 65;
 
+/** 「2026/08/01」形式で表示する */
+export function formatSlash(date: IsoDate | null | undefined): string {
+  if (!date) return "";
+  return date.replaceAll("-", "/");
+}
+
 /** 「2026年8月1日」形式で表示する */
 export function formatJa(date: IsoDate | null | undefined): string {
   if (!date) return "";

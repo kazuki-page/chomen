@@ -12,7 +12,7 @@ import {
   type WorkOrderListItem,
 } from "@db/repositories/work-orders.server";
 import { RENEWAL_LEAD_MONTHS, STALE_THRESHOLD_DAYS } from "~/lib/constants";
-import { addMonths, formatJa, monthRange, todayInTokyo } from "~/lib/date";
+import { addMonths, formatJa, formatSlash, monthRange, todayInTokyo } from "~/lib/date";
 import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/home";
 
@@ -194,9 +194,12 @@ function ProcedureRow({ procedure }: { procedure: ProcedureSummary }) {
         <p className="mt-2 text-lg font-medium text-slate-900">
           {procedure.nextItemLabel ?? "完了できます"}
         </p>
-        {procedure.tenantName && (
-          <p className="mt-1 text-sm text-slate-500">{procedure.tenantName}</p>
-        )}
+        <p className="mt-1 flex flex-wrap gap-x-2 text-sm text-slate-500">
+          {procedure.scheduledOn && (
+            <span className="tabular-nums">予定日 {formatSlash(procedure.scheduledOn)}</span>
+          )}
+          {procedure.tenantName && <span>{procedure.tenantName}</span>}
+        </p>
       </Link>
     </li>
   );
@@ -225,9 +228,12 @@ function WorkOrderRow({ workOrder }: { workOrder: WorkOrderListItem }) {
         )}
       </div>
         <p className="mt-2 text-lg font-medium text-slate-900">{workOrder.title}</p>
-        <p className="mt-1 text-sm text-slate-600">
-          {workOrder.handlerLabel}
-          {workOrder.waitingOn ? ` — ${workOrder.waitingOn}まち` : ""}
+        <p className="mt-1 flex flex-wrap gap-x-2 text-sm text-slate-600">
+          <span className="tabular-nums">発生 {formatSlash(workOrder.occurredOn)}</span>
+          <span>
+            {workOrder.handlerLabel}
+            {workOrder.waitingOn ? ` — ${workOrder.waitingOn}まち` : ""}
+          </span>
         </p>
       </Link>
     </li>
