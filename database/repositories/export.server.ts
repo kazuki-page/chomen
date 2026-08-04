@@ -30,7 +30,7 @@ export type LeaseExportRow = {
  *
  * 列の並びは一括登録（インポート）と同じにしてある。
  * 書き出して直して読み込み直す、という使い方ができる。
- * 末尾に足した「状態」「退去日」はインポート側で無視される。
+ * 「状態」「退去日」もインポート側が読み、終了した契約として登録される。
  */
 export async function exportLeases(
   ctx: OrgContext,

@@ -64,6 +64,11 @@ export default function LeaseImport({ actionData }: Route.ComponentProps) {
           <code>2025-04-01</code> でも構いません。家賃の「,」や「円」も無視します。
           一度に{MAX_IMPORT_ROWS}行までです。
         </p>
+        <p className="mt-2 text-sm text-slate-500">
+          <strong className="text-slate-700">過去の入居履歴も入れられます。</strong>
+          状態に「終了」と書くか退去日を入れると、終了した契約として登録します。
+          その部屋に今の入居者がいても構いません（更新手続きは作られません）。
+        </p>
       </section>
 
       {actionData?.error && (
@@ -103,7 +108,8 @@ function PreviewTable({ preview, text }: { preview: ImportPreview; text: string 
     <section className="mt-8">
       <h2 className="text-lg font-bold">確認</h2>
       <p className="mt-2 text-base">
-        <span className="font-bold text-emerald-700">{preview.okCount}件</span> を登録できます。
+        <span className="font-bold text-emerald-700">{preview.okCount}件</span> を登録できます
+        {preview.pastCount > 0 && `（うち過去の契約 ${preview.pastCount}件）`}。
         {preview.errorCount > 0 && (
           <span className="ml-2 font-bold text-rose-700">
             {preview.errorCount}件はエラーのため取り込みません。
@@ -118,9 +124,10 @@ function PreviewTable({ preview, text }: { preview: ImportPreview; text: string 
               <th className="px-3 py-2">行</th>
               <th className="px-3 py-2">部屋</th>
               <th className="px-3 py-2">入居者</th>
+              <th className="px-3 py-2">種類</th>
               <th className="px-3 py-2">契約日</th>
               <th className="px-3 py-2">家賃</th>
-              <th className="px-3 py-2">次回更新</th>
+              <th className="px-3 py-2">次回更新 / 退去日</th>
               <th className="px-3 py-2">結果</th>
             </tr>
           </thead>
@@ -134,12 +141,23 @@ function PreviewTable({ preview, text }: { preview: ImportPreview; text: string 
                   </td>
                   <td className="px-3 py-2 font-bold tabular-nums">{row.unitCode || "—"}</td>
                   <td className="px-3 py-2">{row.tenantName || "—"}</td>
+                  <td className="px-3 py-2">
+                    {row.isPast ? (
+                      <span className="rounded-full bg-slate-200 px-2 py-0.5 text-sm">過去</span>
+                    ) : (
+                      <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sm text-sky-800">
+                        現在
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 tabular-nums">{formatJa(row.contractDate) || "—"}</td>
                   <td className="px-3 py-2 tabular-nums">
                     {row.rent != null ? `${row.rent.toLocaleString("ja-JP")}円` : "—"}
                   </td>
                   <td className="px-3 py-2 tabular-nums">
-                    {formatJa(row.nextRenewalDate) || "—"}
+                    {row.isPast
+                      ? formatJa(row.endedOn) || "退去日なし"
+                      : formatJa(row.nextRenewalDate) || "—"}
                   </td>
                   <td className="px-3 py-2 text-sm">
                     {ok ? (
@@ -166,7 +184,7 @@ function PreviewTable({ preview, text }: { preview: ImportPreview; text: string 
             {preview.okCount}件を登録する
           </button>
           <p className="mt-2 text-center text-sm text-slate-500">
-            登録すると、それぞれに次回の更新手続きも自動で作られます
+            現在の契約には次回の更新手続きも自動で作られます。過去の契約には作られません
           </p>
         </Form>
       )}

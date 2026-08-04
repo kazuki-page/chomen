@@ -78,7 +78,15 @@ export const IMPORT_COLUMNS = [
   "契約日",
   "家賃",
   "次回更新日（省略可）",
+  "状態（省略可）",
+  "退去日（省略可）",
 ] as const;
+
+/**
+ * 「終了した契約」とみなす状態の書き方。
+ * 退去日が入っていれば状態が空でも終了として扱う。
+ */
+export const ENDED_STATUS_WORDS = ["終了", "退去", "ended", "過去"] as const;
 
 /** 一度に取り込める行数の上限 */
 export const MAX_IMPORT_ROWS = 200;

@@ -6,6 +6,70 @@ import type { OrgContext } from "../context.server";
 import { leases, rentRevisions, tenants, units } from "../schema";
 import { startProcedure } from "./procedures.server";
 
+export type RegisterPastLeaseInput = {
+  unitId: string;
+  tenantName: string;
+  birthYear: number | null;
+  contractDate: IsoDate;
+  rent: number;
+  /** 退去日。分からなければ null */
+  endedOn: IsoDate | null;
+};
+
+/**
+ * すでに終了した（退去済みの）契約を登録する。
+ *
+ * 導入時に過去の入居履歴を移すための入口。現在の契約とは扱いが3つ違う。
+ *
+ * 1. **その部屋に現在の契約があっても登録できる。** 過去の履歴は今の入居者と共存する
+ * 2. **更新手続きを作らない。** 退去した人に更新の予定は要らない
+ * 3. **募集情報に触らない。** 今この部屋が空室かどうかは、現在の契約の有無で決まる
+ */
+export async function registerPastLease(
+  ctx: OrgContext,
+  input: RegisterPastLeaseInput,
+): Promise<{ leaseId: string }> {
+  const [unit] = await ctx.db
+    .select({ id: units.id })
+    .from(units)
+    .where(and(eq(units.organizationId, ctx.organizationId), eq(units.id, input.unitId)));
+
+  if (!unit) throw new Response("部屋が見つかりません", { status: 404 });
+
+  const tenantId = crypto.randomUUID();
+  const leaseId = crypto.randomUUID();
+
+  await ctx.db.batch([
+    ctx.db.insert(tenants).values({
+      id: tenantId,
+      organizationId: ctx.organizationId,
+      name: input.tenantName,
+      birthYear: input.birthYear,
+    }),
+    ctx.db.insert(leases).values({
+      id: leaseId,
+      organizationId: ctx.organizationId,
+      unitId: input.unitId,
+      tenantId,
+      contractDate: input.contractDate,
+      // 終わった契約に次回更新日は無い
+      nextRenewalDate: null,
+      status: "ended",
+      endedOn: input.endedOn,
+    }),
+    ctx.db.insert(rentRevisions).values({
+      organizationId: ctx.organizationId,
+      leaseId,
+      effectiveFrom: input.contractDate,
+      amount: input.rent,
+      reason: "initial",
+      confirmed: true,
+    }),
+  ]);
+
+  return { leaseId };
+}
+
 export type RegisterExistingLeaseInput = {
   unitId: string;
   tenantName: string;
