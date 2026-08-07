@@ -168,6 +168,56 @@ export async function getUnitDetail(
   };
 }
 
+export type UnitLeaseRow = {
+  id: string;
+  tenantName: string;
+  tenantBirthYear: number | null;
+  contractDate: IsoDate;
+  endedOn: IsoDate | null;
+  status: "active" | "ended";
+  rent: number | null;
+  /** ぶら下がっている手続きの件数。削除時に何が消えるかを見せるために使う */
+  procedureCount: number;
+};
+
+/**
+ * その部屋の入居の履歴。**現在の契約も含めて**新しい順に返す。
+ *
+ * 家賃の履歴（listRentHistoryForUnit）では代用できない。
+ * 家賃の分からない契約は改定レコードを持たないので、そちらには現れない。
+ * 誤って登録した契約を消すには、どの契約も一覧に出ている必要がある。
+ */
+export async function listLeasesForUnit(
+  ctx: OrgContext,
+  unitId: string,
+): Promise<UnitLeaseRow[]> {
+  const latestRent = sql<number | null>`(
+    select r.amount from rent_revisions r
+    where r.lease_id = ${leases.id} and r.confirmed = 1
+    order by r.effective_from desc limit 1
+  )`;
+
+  const procedureCount = sql<number>`(
+    select count(*) from procedures p where p.lease_id = ${leases.id}
+  )`;
+
+  return ctx.db
+    .select({
+      id: leases.id,
+      tenantName: tenants.name,
+      tenantBirthYear: tenants.birthYear,
+      contractDate: leases.contractDate,
+      endedOn: leases.endedOn,
+      status: leases.status,
+      rent: latestRent,
+      procedureCount,
+    })
+    .from(leases)
+    .innerJoin(tenants, eq(tenants.id, leases.tenantId))
+    .where(and(eq(leases.organizationId, ctx.organizationId), eq(leases.unitId, unitId)))
+    .orderBy(desc(leases.contractDate));
+}
+
 export type RentHistoryRow = {
   id: string;
   effectiveFrom: IsoDate;

@@ -4,11 +4,14 @@ import { listEquipmentForUnit } from "@db/repositories/equipment.server";
 import { listProceduresForUnit } from "@db/repositories/procedures.server";
 import {
   getUnitDetail,
+  listLeasesForUnit,
   listRentHistoryForUnit,
   updateListing,
   type RentHistoryRow,
+  type UnitLeaseRow,
 } from "@db/repositories/units.server";
 import { listWorkOrders } from "@db/repositories/work-orders.server";
+import { deleteLease } from "@db/services/lease-delete.server";
 import { updateLeaseDetails } from "@db/services/lease-edit.server";
 import { registerExistingLease } from "@db/services/leases.server";
 import { startProcedure } from "@db/services/procedures.server";
@@ -34,14 +37,17 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const unit = await getUnitDetail(ctx, params.unitId, { asOf: today });
   if (!unit) throw new Response("見つかりません", { status: 404 });
 
-  const [procedures, workOrders, equipment, rentHistory] = await Promise.all([
+  const [procedures, workOrders, equipment, rentHistory, leaseHistory] = await Promise.all([
     listProceduresForUnit(ctx, unit.id),
     listWorkOrders(ctx, { now: new Date(), unitId: unit.id }),
     listEquipmentForUnit(ctx, unit.id),
     listRentHistoryForUnit(ctx, unit.id),
+    listLeasesForUnit(ctx, unit.id),
   ]);
 
-  return { unit, procedures, workOrders, equipment, rentHistory, today };
+  const deleted = new URL(request.url).searchParams.get("deleted");
+
+  return { unit, procedures, workOrders, equipment, rentHistory, leaseHistory, today, deleted };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -81,6 +87,13 @@ export async function action({ request, params }: Route.ActionArgs) {
     });
 
     return redirect(`/units/${params.unitId}`);
+  }
+
+  if (intent === "delete_lease") {
+    const result = await deleteLease(ctx, String(form.get("leaseId")));
+    return redirect(
+      `/units/${params.unitId}?deleted=${encodeURIComponent(result.tenantName)}`,
+    );
   }
 
   if (intent === "rename") {
@@ -125,13 +138,20 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
-  const { unit, procedures, workOrders, equipment, rentHistory, today } = loaderData;
+  const { unit, procedures, workOrders, equipment, rentHistory, leaseHistory, today, deleted } =
+    loaderData;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-6 pb-16">
       <Link to="/units" className="text-slate-500 hover:underline">
         ← 部屋・駐車場
       </Link>
+
+      {deleted && (
+        <p className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base text-emerald-900">
+          {deleted} の契約を削除しました
+        </p>
+      )}
 
       {actionData?.error && (
         <p className="mt-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900">
@@ -228,6 +248,12 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
           </ul>
         )}
       </Section>
+
+      {leaseHistory.length > 0 && (
+        <Section title="入居の履歴">
+          <LeaseHistory rows={leaseHistory} />
+        </Section>
+      )}
 
       {rentHistory.length > 0 && (
         <Section title="家賃の履歴">
@@ -552,6 +578,81 @@ function EditField({
       {hint && <span className="mt-0.5 block text-sm text-slate-500">{hint}</span>}
       <div className="mt-1">{children}</div>
     </label>
+  );
+}
+
+/**
+ * その部屋の歴代の契約。現在の契約も含めて新しい順に並べる。
+ *
+ * ここが**契約を削除できる唯一の場所**。
+ * 家賃の履歴のほうには金額の無い契約が現れないので、そちらには置けない。
+ */
+function LeaseHistory({ rows }: { rows: UnitLeaseRow[] }) {
+  return (
+    <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
+      {rows.map((row) => (
+        <li key={row.id} className="px-4 py-3">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="font-medium">{row.tenantName}</span>
+            {row.status === "active" ? (
+              <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sm text-sky-800">
+                現在
+              </span>
+            ) : (
+              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-sm">終了</span>
+            )}
+            <span className="text-slate-500 tabular-nums">
+              {formatSlash(row.contractDate)} 〜{" "}
+              {row.status === "active" ? "現在" : formatSlash(row.endedOn) || "退去日なし"}
+            </span>
+            {row.rent != null && (
+              <span className="ml-auto tabular-nums">
+                {row.rent.toLocaleString("ja-JP")}円
+              </span>
+            )}
+          </div>
+
+          <DeleteLeaseForm lease={row} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * 契約の削除。**退居ではなく、入力の取り消し。**
+ *
+ * 取り消しが効かないので、畳んだうえで「何が一緒に消えるか」を数えて見せる。
+ * ボタンの文言に入居者名を入れているのは、複数の契約が並ぶ画面で
+ * 隣の行を消してしまう事故を防ぐため。
+ */
+function DeleteLeaseForm({ lease }: { lease: UnitLeaseRow }) {
+  const alsoGone = [
+    lease.procedureCount > 0 ? `手続き ${lease.procedureCount}件` : null,
+    lease.rent != null ? "家賃の履歴" : null,
+  ].filter(Boolean);
+
+  return (
+    <details className="mt-2">
+      <summary className="cursor-pointer text-sm text-slate-500">この契約を削除する</summary>
+      <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 p-3">
+        <p className="text-sm text-rose-900">
+          間違えて登録した契約を消すための操作です。退居の記録には使いません。
+          {alsoGone.length > 0 && `${alsoGone.join("・")}も一緒に消えます。`}
+          <strong className="ml-1">元に戻せません。</strong>
+        </p>
+        <Form method="post" className="mt-3">
+          <input type="hidden" name="intent" value="delete_lease" />
+          <input type="hidden" name="leaseId" value={lease.id} />
+          <button
+            type="submit"
+            className="w-full rounded-lg border-2 border-rose-700 px-4 py-3 text-base font-bold text-rose-800 hover:bg-rose-100"
+          >
+            {lease.tenantName} の契約を削除する
+          </button>
+        </Form>
+      </div>
+    </details>
   );
 }
 
