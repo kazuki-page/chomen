@@ -15,8 +15,31 @@ import "./app.css";
 /**
  * Web フォントは読み込まない。
  * 主な利用環境が Android であり、日本語は OS 標準フォントのほうが読みやすく速い。
+ *
+ * アイコンは `public/` に置いた PNG。iOS は manifest のアイコンを見ないので
+ * apple-touch-icon を別に指定する（これが無いと画面の文字を切り取った絵になる）。
  */
-export const links: Route.LinksFunction = () => [];
+export const links: Route.LinksFunction = () => [
+  { rel: "manifest", href: "/manifest.webmanifest" },
+  { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
+  { rel: "icon", href: "/icon-192.png", type: "image/png", sizes: "192x192" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+];
+
+/**
+ * ホーム画面から開いたときにブラウザの枠を出さないための登録。
+ *
+ * Android は manifest の display: standalone で決まるが、
+ * **インストールできると判定されるには fetch ハンドラを持つ Service Worker が要る。**
+ * 中身は素通しで、キャッシュはしない（public/sw.js）。
+ */
+const REGISTER_SW = `
+if ("serviceWorker" in navigator) {
+  addEventListener("load", function () {
+    navigator.serviceWorker.register("/sw.js").catch(function () {});
+  });
+}
+`;
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -24,6 +47,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#0f172a" />
+        {/* iOS 16.3 以前はこれが無いとブラウザの枠が付いたまま開く */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="おおやさん" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <Meta />
         <Links />
       </head>
@@ -31,6 +60,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
         <ScrollRestoration />
         <Scripts />
+        <script dangerouslySetInnerHTML={{ __html: REGISTER_SW }} />
       </body>
     </html>
   );
