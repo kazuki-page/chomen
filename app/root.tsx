@@ -48,7 +48,14 @@ export default function App({ loaderData }: Route.ComponentProps) {
     <>
       <header className="border-b border-slate-200 bg-white">
         <nav className="mx-auto flex max-w-4xl gap-2 px-4 py-2">
-          <NavItem to="/">ホーム</NavItem>
+          {/*
+            ホームだけアイコン。狭い画面では文字が縦に折り返されるため、
+            3文字の「ホーム」がヘッダーの高さを決めてしまっていた。
+            家＝最初の画面はアイコン単体でも通じる数少ない例。
+          */}
+          <NavItem to="/" label="ホーム">
+            <HomeIcon />
+          </NavItem>
           <NavItem to="/units">部屋</NavItem>
           <NavItem to="/equipment">設備</NavItem>
           <NavItem to="/work-orders">修繕</NavItem>
@@ -62,20 +69,53 @@ export default function App({ loaderData }: Route.ComponentProps) {
   );
 }
 
-function NavItem({ to, children }: { to: string; children: React.ReactNode }) {
+/**
+ * @param label 中身がアイコンのときの読み上げ用の名前。文字タブでは不要
+ */
+function NavItem({
+  to,
+  label,
+  children,
+}: {
+  to: string;
+  label?: string;
+  children: React.ReactNode;
+}) {
   return (
     <NavLink
       to={to}
+      aria-label={label}
       // 詳細ページ（/units/:id など）でも親のタブを選択状態にする
       end={to === "/"}
       className={({ isActive }) =>
-        `rounded-lg px-4 py-2 text-base font-medium ${
+        // アイコンでも文字タブと同じ大きさで押せるように、高さを揃えて中央に置く
+        `flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-base font-medium ${
           isActive ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
         }`
       }
     >
       {children}
     </NavLink>
+  );
+}
+
+/** ホームタブのアイコン。色は文字タブと揃うよう currentColor を使う */
+function HomeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="size-6"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 10.5 12 3l9 7.5" />
+      <path d="M5.5 9.5V20h13V9.5" />
+      <path d="M9.5 20v-6h5v6" />
+    </svg>
   );
 }
 
