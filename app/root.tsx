@@ -47,7 +47,11 @@ export default function App({ loaderData }: Route.ComponentProps) {
   return (
     <>
       <header className="border-b border-slate-200 bg-white">
-        <nav className="mx-auto flex max-w-4xl gap-2 px-4 py-2">
+        {/*
+          左右の余白を詰めて、狭い画面でも6つが1行に収まるようにしている。
+          必要な幅は 332px なので、いまどきの Android（360px 以上）なら折り返さない。
+        */}
+        <nav className="mx-auto flex max-w-4xl gap-1 px-4 py-2 sm:gap-2">
           {/*
             ホームだけアイコン。狭い画面では文字が縦に折り返されるため、
             3文字の「ホーム」がヘッダーの高さを決めてしまっていた。
@@ -88,8 +92,9 @@ function NavItem({
       // 詳細ページ（/units/:id など）でも親のタブを選択状態にする
       end={to === "/"}
       className={({ isActive }) =>
-        // アイコンでも文字タブと同じ大きさで押せるように、高さを揃えて中央に置く
-        `flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-base font-medium ${
+        // アイコンでも文字タブと同じ大きさで押せるように、高さを揃えて中央に置く。
+        // leading-tight は、幅の足りない端末で折り返したときに2文字の隙間を詰めるため
+        `flex min-h-12 items-center justify-center rounded-lg px-2 py-2 text-base font-medium leading-tight sm:px-4 ${
           isActive ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
         }`
       }
@@ -99,12 +104,15 @@ function NavItem({
   );
 }
 
-/** ホームタブのアイコン。色は文字タブと揃うよう currentColor を使う */
+/**
+ * ホームタブのアイコン。色は文字タブと揃うよう currentColor を使う。
+ * 幅を2文字ぶん取って、隣の文字タブと同じ大きさで押せるようにしている。
+ */
 function HomeIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="size-6"
+      className="h-6 w-8"
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
