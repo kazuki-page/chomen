@@ -1,1 +1,7 @@
 BETTER_AUTH_SECRET="ここに openssl rand -base64 32 の出力を入れる"
+
+# パスワード再発行のメール送信（Resend）。
+# 空のままでも動くが、その場合メールは送られずログに警告が出るだけになる。
+# 本番へは wrangler secret put RESEND_API_KEY で登録する（コードにも .dev.vars にも本物を置かない）。
+RESEND_API_KEY=""
+MAIL_FROM="おおやさん <no-reply@mail.kazuki.page>"

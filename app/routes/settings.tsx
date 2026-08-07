@@ -1,5 +1,7 @@
+import { env } from "cloudflare:workers";
 import { Form, Link, redirect } from "react-router";
 
+import { createDatabase } from "@db/context.server";
 import { listBuildings } from "@db/repositories/buildings.server";
 import { listMembers } from "@db/repositories/memberships.server";
 import {
@@ -7,6 +9,7 @@ import {
   listPendingInvitations,
   revokeInvitation,
 } from "@db/services/invitations.server";
+import { issueResetToken, resetUrl } from "@db/services/password-reset.server";
 import { cookieHeaders, getAuth, requireAdmin, requireOrg } from "~/lib/auth.server";
 import { formatJa } from "~/lib/date";
 import type { Route } from "./+types/settings";
@@ -86,6 +89,27 @@ export async function action({ request }: Route.ActionArgs) {
   if (intent === "revoke") {
     await revokeInvitation(ctx, String(form.get("invitationId")));
     return redirect("/settings");
+  }
+
+  /**
+   * メンバーの再設定リンクを発行する。
+   *
+   * メールが届かない相手（ご両親のキャリアメールなど）のための逃げ道。
+   * **リンクは発行した直後の1回しか表示しない**ので、リダイレクトせずに返す。
+   */
+  if (intent === "issue_reset") {
+    const userId = String(form.get("userId"));
+
+    // 自分の組織のメンバーであることを確かめてから発行する
+    const members = await listMembers(ctx);
+    const target = members.find((m) => m.userId === userId);
+    if (!target) throw new Response("メンバーが見つかりません", { status: 404 });
+
+    const token = await issueResetToken(createDatabase(env.DB), userId);
+    return {
+      resetLink: resetUrl(new URL(request.url).origin, token),
+      resetFor: target.name,
+    };
   }
 
   throw new Response("不明な操作です", { status: 400 });
@@ -204,9 +228,30 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
 
       <section className="mt-8">
         <h2 className="text-lg font-bold">メンバー</h2>
+        {isAdmin && (
+          <p className="mt-1 text-base text-slate-600">
+            パスワードを忘れた人には、ここから再設定リンクを発行して渡します。
+          </p>
+        )}
+
+        {actionData?.resetLink && (
+          <div className="mt-3 rounded-xl border-2 border-sky-300 bg-sky-50 p-4">
+            <p className="text-base font-bold text-sky-900">
+              {actionData.resetFor} さんの再設定リンク
+            </p>
+            <p className="mt-1 text-sm text-sky-900">
+              この画面を離れると二度と表示されません。今すぐ控えて本人に渡してください。
+              1時間で使えなくなります。
+            </p>
+            <code className="mt-2 block overflow-x-auto rounded-lg bg-white px-3 py-2 text-sm">
+              {actionData.resetLink}
+            </code>
+          </div>
+        )}
+
         <ul className="mt-3 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
           {members.map((m) => (
-            <li key={m.id} className="flex items-center gap-3 px-4 py-3">
+            <li key={m.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
               <span className="min-w-0 flex-1">
                 <span className="block font-medium">{m.name}</span>
                 <span className="block text-sm text-slate-500">{m.email}</span>
@@ -214,6 +259,18 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
               <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-sm">
                 {m.role === "admin" ? "管理者" : "編集者"}
               </span>
+              {isAdmin && (
+                <Form method="post" className="shrink-0">
+                  <input type="hidden" name="intent" value="issue_reset" />
+                  <input type="hidden" name="userId" value={m.userId} />
+                  <button
+                    type="submit"
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-100"
+                  >
+                    再設定リンク
+                  </button>
+                </Form>
+              )}
             </li>
           ))}
         </ul>

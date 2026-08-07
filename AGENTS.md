@@ -103,9 +103,22 @@ npm run db:reset-auth     # ローカルのアカウントを全消去し、初�
 - 本番URLは https://oyasan.kazuki.page （独自ドメイン）。`baseURL` はリクエストのオリジンから導出しているので、ドメインを足しても認証側の変更は不要
 - 平文 HTTP は `workers/app.ts` で HTTPS へ 301 リダイレクトする。localhost は対象外
 
+### パスワードの再発行
+
+- **再設定リンクを受け取れるのは管理者だけ。** 管理者以外が依頼した場合は、本人ではなく
+  **管理者に「依頼が届いた」と通知**する。分岐は `database/services/password-reset.server.ts`
+- 理由は2つ。ご両親のキャリアメールに届かない事故を避けること、鍵になるメールを1つに絞ること
+- 通知メールに**再設定リンクを入れない**。管理者が本人確認をしてから設定画面で発行する
+- 管理者以外の受け皿は設定画面の「再設定リンク」。Better Auth と同じ形式で `verification` に積むので、
+  メール経由のリンクと同じ画面・同じ検証を通る
+- **申請画面の応答は、登録の有無・権限・送信の成否によらず必ず同じ文言。** ここが変わると情報が漏れる
+- メール送信は `app/lib/mail.server.ts`（Resend の HTTP API）。**失敗しても throw しない**。
+  例外が申請画面まで伝わると、応答の差からメールアドレスの存在が読み取れてしまう
+- `RESEND_API_KEY` は Cloudflare のシークレット。`MAIL_FROM` は送信元。未設定でもアプリは動く（送られず警告ログのみ）
+
 ## セキュリティ上の決めごと
 
-- **ログイン・登録には自前のレート制限を通す**（`database/services/rate-limit.server.ts`）。
+- **ログイン・登録・パスワード再発行には自前のレート制限を通す**（`database/services/rate-limit.server.ts`）。
   Better Auth の rateLimit は HTTP ハンドラ経由にしか効かず、`auth.api.*` の直接呼び出しは素通りするため
 - レート制限テーブルは認証前に使うため `organization_id` を持たない。**この例外を業務クエリに広げない**
 - セキュリティヘッダは `workers/app.ts` で全レスポンスに付ける

@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import type { Database, OrgContext } from "../context.server";
 import { memberships, organizations, user } from "../schema";
@@ -50,6 +50,25 @@ export async function listMembers(ctx: OrgContext): Promise<
     .from(memberships)
     .innerJoin(user, eq(user.id, memberships.userId))
     .where(eq(memberships.organizationId, ctx.organizationId))
+    .orderBy(asc(memberships.createdAt));
+}
+
+/**
+ * 組織の管理者の宛先。パスワード再発行の依頼を知らせるために使う。
+ *
+ * 認証前（ログインしていない相手からの依頼）に呼ばれるため、
+ * OrgContext ではなく素の Database と組織 ID を受け取る。
+ * **この例外を業務クエリに広げないこと。**
+ */
+export async function listAdminEmails(
+  db: Database,
+  organizationId: string,
+): Promise<{ name: string; email: string }[]> {
+  return db
+    .select({ name: user.name, email: user.email })
+    .from(memberships)
+    .innerJoin(user, eq(user.id, memberships.userId))
+    .where(and(eq(memberships.organizationId, organizationId), eq(memberships.role, "admin")))
     .orderBy(asc(memberships.createdAt));
 }
 

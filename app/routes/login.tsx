@@ -12,7 +12,8 @@ export function meta(_: Route.MetaArgs) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   if (await getAppSession(request)) throw redirect("/");
-  return { next: new URL(request.url).searchParams.get("next") ?? "/" };
+  const params = new URL(request.url).searchParams;
+  return { next: params.get("next") ?? "/", justReset: params.get("reset") === "1" };
 }
 
 /** 総当たり対策。同一IP × 同一メールで 1 分に 5 回まで */
@@ -58,6 +59,12 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
     <main className="mx-auto max-w-sm px-4 py-12">
       <h1 className="text-2xl font-bold">ログイン</h1>
 
+      {loaderData.justReset && (
+        <p className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base text-emerald-900">
+          パスワードを変更しました。新しいパスワードでログインしてください
+        </p>
+      )}
+
       {actionData?.error && (
         <p className="mt-4 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900">
           {actionData.error}
@@ -94,7 +101,13 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
         </button>
       </Form>
 
-      <p className="mt-6 text-sm text-slate-500">
+      <p className="mt-6 text-base">
+        <Link to="/forgot-password" className="text-sky-700 underline">
+          パスワードを忘れた場合
+        </Link>
+      </p>
+
+      <p className="mt-4 text-sm text-slate-500">
         アカウントは管理者からの招待リンクで作成します。
         <Link to="/signup" className="ml-1 underline">
           初回セットアップ
