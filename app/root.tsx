@@ -52,7 +52,8 @@ export default function App({ loaderData }: Route.ComponentProps) {
           <NavItem to="/units">部屋</NavItem>
           <NavItem to="/equipment">設備</NavItem>
           <NavItem to="/work-orders">修繕</NavItem>
-          <NavItem to="/export">書き出し</NavItem>
+          {/* 他のタブが2文字なので幅を揃える。ページ側の見出しは「書き出し」のまま */}
+          <NavItem to="/export">書出</NavItem>
           <NavItem to="/settings">設定</NavItem>
         </nav>
       </header>
