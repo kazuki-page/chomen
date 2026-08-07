@@ -91,20 +91,21 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   if (intent === "register_lease") {
     const contractDate = String(form.get("contractDate") ?? "");
-    const rent = Number(form.get("rent"));
     const name = String(form.get("tenantName") ?? "").trim();
 
-    if (!name || !contractDate || !Number.isFinite(rent)) {
-      return { error: "氏名・契約日・家賃を入力してください" };
+    // 家賃は必須にしない。古い契約は金額が残っていないことがある
+    if (!name || !contractDate) {
+      return { error: "氏名と契約日を入力してください" };
     }
 
     const birthYear = Number(form.get("birthYear"));
+    const rent = Number(form.get("rent"));
     await registerExistingLease(ctx, {
       unitId: params.unitId,
       tenantName: name,
       birthYear: Number.isFinite(birthYear) && birthYear > 0 ? birthYear : null,
       contractDate,
-      rent,
+      rent: Number.isFinite(rent) && rent > 0 ? rent : null,
       nextRenewalDate: String(form.get("nextRenewalDate") ?? "") || null,
     });
 
@@ -319,10 +320,12 @@ function RegisterLeaseForm({ today }: { today: string }) {
 
         <label className="block">
           <span className="text-base font-medium text-slate-700">現在の家賃（円）</span>
+          <span className="mt-0.5 block text-sm text-slate-500">
+            任意。分からなければ空のままで構いません
+          </span>
           <input
             type="number"
             name="rent"
-            required
             inputMode="numeric"
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
           />
@@ -510,7 +513,10 @@ function EditLeaseForm({
           />
         </EditField>
 
-        <EditField label="現在の家賃（円）" hint="履歴は増えません。最新の金額を書き換えます">
+        <EditField
+          label="現在の家賃（円）"
+          hint="履歴は増えません。最新の金額を書き換えます。空のままなら今の金額を残します"
+        >
           <input
             type="number"
             name="rent"

@@ -111,9 +111,11 @@ export async function previewLeaseImport(
     if (!contractRaw) errors.push("契約日がありません");
     else if (!contractDate) errors.push(`契約日「${contractRaw}」を読み取れません`);
 
-    const rent = normalizeNumber(rentRaw);
-    if (!rentRaw) errors.push("家賃がありません");
-    else if (rent === null) errors.push(`家賃「${rentRaw}」を読み取れません`);
+    // 家賃は必須にしない。古い契約は金額が残っていないことがある
+    const rent = rentRaw.trim() ? normalizeNumber(rentRaw) : null;
+    if (rentRaw.trim() && rent === null) {
+      errors.push(`家賃「${rentRaw}」を読み取れません`);
+    }
 
     const endedOn = endedRaw.trim() ? normalizeDate(endedRaw) : null;
     if (endedRaw.trim() && !endedOn) {
@@ -187,7 +189,7 @@ export async function commitLeaseImport(
   let past = 0;
 
   for (const row of preview.rows) {
-    if (row.errors.length > 0 || !row.unitId || !row.contractDate || row.rent === null) continue;
+    if (row.errors.length > 0 || !row.unitId || !row.contractDate) continue;
 
     try {
       if (row.isPast) {

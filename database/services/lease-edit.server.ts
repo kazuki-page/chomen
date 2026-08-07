@@ -11,7 +11,7 @@ export type LeaseEditInput = {
   birthYear: number | null;
   contractDate: IsoDate;
   nextRenewalDate: IsoDate | null;
-  /** 現在の家賃。**打ち間違いの訂正用** */
+  /** 現在の家賃。**打ち間違いの訂正用**。null（空欄）なら今の金額をそのまま残す */
   rent: number | null;
 };
 
@@ -94,7 +94,7 @@ export async function updateLeaseDetails(
   await ctx.db.batch(writes as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
 
   if (input.rent !== null) {
-    await correctCurrentRent(ctx, lease.id, input.rent);
+    await correctCurrentRent(ctx, lease.id, input.rent, input.contractDate);
   }
 }
 
@@ -102,11 +102,15 @@ export async function updateLeaseDetails(
  * 現在の家賃を訂正する。
  * 新しい改定を作らず、**最新の確定済み改定の金額を書き換える**。
  * 「入力を間違えた」を直すための操作なので、履歴を増やしてはいけない。
+ *
+ * ただし家賃を空のまま登録した契約には書き換える対象が無い。
+ * その場合だけは契約時の家賃として1件作る（あとから金額が分かった、という場合）。
  */
 async function correctCurrentRent(
   ctx: OrgContext,
   leaseId: string,
   amount: number,
+  contractDate: IsoDate,
 ): Promise<void> {
   const [latest] = await ctx.db
     .select({ id: rentRevisions.id, amount: rentRevisions.amount })
@@ -121,7 +125,19 @@ async function correctCurrentRent(
     .orderBy(desc(rentRevisions.effectiveFrom))
     .limit(1);
 
-  if (!latest || latest.amount === amount) return;
+  if (!latest) {
+    await ctx.db.insert(rentRevisions).values({
+      organizationId: ctx.organizationId,
+      leaseId,
+      effectiveFrom: contractDate,
+      amount,
+      reason: "initial",
+      confirmed: true,
+    });
+    return;
+  }
+
+  if (latest.amount === amount) return;
 
   await ctx.db
     .update(rentRevisions)

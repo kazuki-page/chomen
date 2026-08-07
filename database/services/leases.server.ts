@@ -11,7 +11,8 @@ export type RegisterPastLeaseInput = {
   tenantName: string;
   birthYear: number | null;
   contractDate: IsoDate;
-  rent: number;
+  /** 家賃。分からなければ null（改定履歴を作らない） */
+  rent: number | null;
   /** 退去日。分からなければ null */
   endedOn: IsoDate | null;
 };
@@ -39,7 +40,7 @@ export async function registerPastLease(
   const tenantId = crypto.randomUUID();
   const leaseId = crypto.randomUUID();
 
-  await ctx.db.batch([
+  const writes: BatchItem<"sqlite">[] = [
     ctx.db.insert(tenants).values({
       id: tenantId,
       organizationId: ctx.organizationId,
@@ -57,15 +58,23 @@ export async function registerPastLease(
       status: "ended",
       endedOn: input.endedOn,
     }),
-    ctx.db.insert(rentRevisions).values({
-      organizationId: ctx.organizationId,
-      leaseId,
-      effectiveFrom: input.contractDate,
-      amount: input.rent,
-      reason: "initial",
-      confirmed: true,
-    }),
-  ]);
+  ];
+
+  // 家賃が分からない古い契約もある。その場合は改定履歴を作らない
+  if (input.rent !== null) {
+    writes.push(
+      ctx.db.insert(rentRevisions).values({
+        organizationId: ctx.organizationId,
+        leaseId,
+        effectiveFrom: input.contractDate,
+        amount: input.rent,
+        reason: "initial",
+        confirmed: true,
+      }),
+    );
+  }
+
+  await ctx.db.batch(writes as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
 
   return { leaseId };
 }
@@ -75,7 +84,8 @@ export type RegisterExistingLeaseInput = {
   tenantName: string;
   birthYear: number | null;
   contractDate: IsoDate;
-  rent: number;
+  /** 家賃。分からなければ null（改定履歴を作らない） */
+  rent: number | null;
   /** 省略時は契約日の2年後 */
   nextRenewalDate: IsoDate | null;
 };
@@ -136,21 +146,27 @@ export async function registerExistingLease(
       nextRenewalDate,
       status: "active",
     }),
-    // 現在の家賃は改定履歴から導出するため、初回の改定として1件作る
-    ctx.db.insert(rentRevisions).values({
-      organizationId: ctx.organizationId,
-      leaseId,
-      effectiveFrom: input.contractDate,
-      amount: input.rent,
-      reason: "initial",
-      confirmed: true,
-    }),
     // 契約が入るので募集は取り下げる
     ctx.db
       .update(units)
       .set({ listingRent: null, listingStartedOn: null, updatedAt: new Date() })
       .where(and(eq(units.organizationId, ctx.organizationId), eq(units.id, input.unitId))),
   ];
+
+  // 現在の家賃は改定履歴から導出するため、初回の改定として1件作る。
+  // 家賃が分からないまま登録することもできる（あとから契約の編集で入れられる）
+  if (input.rent !== null) {
+    writes.push(
+      ctx.db.insert(rentRevisions).values({
+        organizationId: ctx.organizationId,
+        leaseId,
+        effectiveFrom: input.contractDate,
+        amount: input.rent,
+        reason: "initial",
+        confirmed: true,
+      }),
+    );
+  }
 
   await ctx.db.batch(writes as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
 

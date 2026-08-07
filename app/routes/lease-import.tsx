@@ -69,6 +69,10 @@ export default function LeaseImport({ actionData }: Route.ComponentProps) {
           状態に「終了」と書くか退去日を入れると、終了した契約として登録します。
           その部屋に今の入居者がいても構いません（更新手続きは作られません）。
         </p>
+        <p className="mt-2 text-sm text-slate-500">
+          必須なのは<strong className="text-slate-700">部屋番号・氏名・契約日</strong>だけです。
+          家賃が残っていない古い契約は、家賃を空にしたまま入居時期だけ登録できます。
+        </p>
       </section>
 
       {actionData?.error && (
