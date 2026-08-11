@@ -4,6 +4,13 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
+	/**
+	 * アプリ名は「家主の帳面」だが、Worker と D1 の名前は `oyasan-app*` のまま。
+	 * **改名しないこと。**
+	 *   - Worker 名を変えると別の Worker が作られ、独自ドメインの張り直しが要る
+	 *   - D1 名は作り直しに等しく、データの移行が発生する
+	 * どちらも外部からは見えないので、揃える利益より事故のリスクが大きい。
+	 */
 	"name": "oyasan-app",
 	"compatibility_date": "2026-08-01",
 	"main": "./workers/app.ts",
