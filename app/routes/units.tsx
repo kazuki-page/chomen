@@ -8,7 +8,7 @@ import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/units";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "部屋一覧 | おおやさん" }];
+  return [{ title: "部屋一覧 | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

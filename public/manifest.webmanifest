@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "おおやさん",
-  "short_name": "おおやさん",
+  "name": "家主の帳面",
+  "short_name": "帳面",
   "description": "賃貸物件の管理。部屋・契約・手続き・修繕をまとめて見る",
   "lang": "ja",
   "start_url": "/",

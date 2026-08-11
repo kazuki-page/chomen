@@ -5,8 +5,8 @@ import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/building";
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  if (!loaderData) return [{ title: "建物 | おおやさん" }];
-  return [{ title: `${loaderData.building.name} | おおやさん` }];
+  if (!loaderData) return [{ title: "建物 | 家主の帳面" }];
+  return [{ title: `${loaderData.building.name} | 家主の帳面` }];
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {

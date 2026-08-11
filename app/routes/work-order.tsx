@@ -9,8 +9,8 @@ import { parseWorkOrderForm } from "~/lib/work-order-form.server";
 import type { Route } from "./+types/work-order";
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  if (!loaderData) return [{ title: "修繕 | おおやさん" }];
-  return [{ title: `${loaderData.workOrder.title} | おおやさん` }];
+  if (!loaderData) return [{ title: "修繕 | 家主の帳面" }];
+  return [{ title: `${loaderData.workOrder.title} | 家主の帳面` }];
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {

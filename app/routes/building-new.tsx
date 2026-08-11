@@ -5,7 +5,7 @@ import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/building-new";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "建物の登録 | おおやさん" }];
+  return [{ title: "建物の登録 | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

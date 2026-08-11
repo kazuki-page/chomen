@@ -6,7 +6,7 @@ import { approximateAge, formatJa, todayInTokyo } from "~/lib/date";
 import type { Route } from "./+types/print-occupancy";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "入居状況一覧 | おおやさん" }];
+  return [{ title: "入居状況一覧 | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

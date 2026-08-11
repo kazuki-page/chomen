@@ -11,7 +11,7 @@ import { formatJa } from "~/lib/date";
 import type { Route } from "./+types/lease-import";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "契約の一括登録 | おおやさん" }];
+  return [{ title: "契約の一括登録 | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

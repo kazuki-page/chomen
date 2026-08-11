@@ -332,13 +332,13 @@ Notion の課題は「開くとデータベースが出てくる」こと。本�
 
 ```
 example.com              ポートフォリオのハブページ（作品一覧）
-oyasan.example.com       管理アプリ（本番）
-oyasan-demo.example.com  デモ環境
+chomen.example.com       管理アプリ（本番）
+chomen-demo.example.com  デモ環境
 ```
 
 #### サブドメインを選択した理由
 
-パス配下（`app.example.com/oyasan/`）と比較した結果、サブドメインを採用する。
+パス配下（`app.example.com/chomen/`）と比較した結果、サブドメインを採用する。
 
 | 観点 | サブドメイン | パス配下 |
 |---|---|---|

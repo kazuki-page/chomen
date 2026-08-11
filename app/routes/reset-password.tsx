@@ -4,7 +4,7 @@ import { getAuth } from "~/lib/auth.server";
 import type { Route } from "./+types/reset-password";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "パスワードの設定 | おおやさん" }];
+  return [{ title: "パスワードの設定 | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

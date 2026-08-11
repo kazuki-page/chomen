@@ -7,7 +7,7 @@ import { todayInTokyo } from "~/lib/date";
 import type { Route } from "./+types/print-equipment";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "設備一覧 | おおやさん" }];
+  return [{ title: "設備一覧 | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

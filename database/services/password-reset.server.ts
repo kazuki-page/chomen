@@ -52,7 +52,7 @@ export async function dispatchPasswordReset(
   if (membership.role === "admin") {
     await sendMail({
       to: input.email,
-      subject: "【おおやさん】パスワードの再設定",
+      subject: "【家主の帳面】パスワードの再設定",
       body: [
         `${input.name} さん`,
         "",
@@ -73,7 +73,7 @@ export async function dispatchPasswordReset(
   for (const admin of admins) {
     await sendMail({
       to: admin.email,
-      subject: "【おおやさん】パスワード再発行の依頼が届いています",
+      subject: "【家主の帳面】パスワード再発行の依頼が届いています",
       body: [
         `${admin.name} さん`,
         "",

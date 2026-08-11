@@ -7,7 +7,7 @@ import { cookieHeaders, getAppSession, getAuth } from "~/lib/auth.server";
 import type { Route } from "./+types/login";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "ログイン | おおやさん" }];
+  return [{ title: "ログイン | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

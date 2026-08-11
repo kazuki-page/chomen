@@ -17,7 +17,7 @@ import { formatJa, todayInTokyo } from "~/lib/date";
 import type { Route } from "./+types/equipment-new";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "設備の記録 | おおやさん" }];
+  return [{ title: "設備の記録 | 家主の帳面" }];
 }
 
 const CATEGORY_VALUES = EQUIPMENT_CATEGORIES.map((c) => c.value) as readonly string[];

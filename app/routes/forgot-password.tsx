@@ -7,7 +7,7 @@ import { getAuth } from "~/lib/auth.server";
 import type { Route } from "./+types/forgot-password";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "パスワードの再発行 | おおやさん" }];
+  return [{ title: "パスワードの再発行 | 家主の帳面" }];
 }
 
 /** 同一IPから 10 分に 5 回まで */

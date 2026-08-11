@@ -11,7 +11,7 @@ import { cookieHeaders, getAuth } from "~/lib/auth.server";
 import type { Route } from "./+types/signup";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "アカウント作成 | おおやさん" }];
+  return [{ title: "アカウント作成 | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

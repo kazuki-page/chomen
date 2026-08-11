@@ -12,7 +12,7 @@ import { approximateAge, formatJa, todayInTokyo } from "~/lib/date";
 import type { Route } from "./+types/print-ledger";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "部屋台帳 | おおやさん" }];
+  return [{ title: "部屋台帳 | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

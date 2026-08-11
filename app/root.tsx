@@ -51,7 +51,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* iOS 16.3 以前はこれが無いとブラウザの枠が付いたまま開く */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-title" content="おおやさん" />
+        {/* ホーム画面のアイコン下に出る名前。長いと途中で切られるので短く */}
+        <meta name="apple-mobile-web-app-title" content="帳面" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <Meta />
         <Links />

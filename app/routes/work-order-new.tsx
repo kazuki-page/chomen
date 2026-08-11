@@ -9,7 +9,7 @@ import { parseWorkOrderForm } from "~/lib/work-order-form.server";
 import type { Route } from "./+types/work-order-new";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "修繕の登録 | おおやさん" }];
+  return [{ title: "修繕の登録 | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

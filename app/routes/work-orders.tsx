@@ -16,7 +16,7 @@ import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/work-orders";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "修繕 | おおやさん" }];
+  return [{ title: "修繕 | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

@@ -15,7 +15,7 @@ import { formatJa } from "~/lib/date";
 import type { Route } from "./+types/settings";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "設定 | おおやさん" }];
+  return [{ title: "設定 | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {

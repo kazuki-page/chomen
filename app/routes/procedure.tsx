@@ -8,9 +8,9 @@ import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/procedure";
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  if (!loaderData) return [{ title: "手続き | おおやさん" }];
+  if (!loaderData) return [{ title: "手続き | 家主の帳面" }];
   const { unitCode, typeLabel } = loaderData.procedure;
-  return [{ title: `${unitCode} ${typeLabel} | おおやさん` }];
+  return [{ title: `${unitCode} ${typeLabel} | 家主の帳面` }];
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {

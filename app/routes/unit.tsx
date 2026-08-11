@@ -26,8 +26,8 @@ import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/unit";
 
 export function meta({ loaderData }: Route.MetaArgs) {
-  if (!loaderData) return [{ title: "部屋 | おおやさん" }];
-  return [{ title: `${loaderData.unit.code} | おおやさん` }];
+  if (!loaderData) return [{ title: "部屋 | 家主の帳面" }];
+  return [{ title: `${loaderData.unit.code} | 家主の帳面` }];
 }
 
 export async function loader({ request, params }: Route.LoaderArgs) {

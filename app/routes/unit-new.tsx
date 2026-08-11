@@ -14,7 +14,7 @@ import {
 import type { Route } from "./+types/unit-new";
 
 export function meta(_: Route.MetaArgs) {
-  return [{ title: "部屋の追加 | おおやさん" }];
+  return [{ title: "部屋の追加 | 家主の帳面" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
