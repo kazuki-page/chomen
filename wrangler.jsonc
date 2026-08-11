@@ -13,8 +13,12 @@
 	 */
 	"preview_urls": false,
 	/**
+	 * workers.dev のURLも塞ぐ。
+	 * 同じ本番 D1 を参照するので、入口は独自ドメイン1つに絞る。
+	 */
+	"workers_dev": false,
+	/**
 	 * 独自ドメイン。DNS レコードと証明書は Cloudflare が自動で用意する。
-	 * workers.dev 側は動作確認が済むまで残しておく。
 	 */
 	"routes": [
 		{
