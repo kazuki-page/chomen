@@ -1,5 +1,7 @@
 import { createRequestHandler } from "react-router";
 
+import { resetDemoData } from "@db/services/demo-reset.server";
+
 const requestHandler = createRequestHandler(
   () => import("virtual:react-router/server-build"),
   import.meta.env.MODE,
@@ -25,7 +27,7 @@ const SECURITY_HEADERS: Record<string, string> = {
 };
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url = new URL(request.url);
 
     // 平文 HTTP で来たらパスワードが流れる前に HTTPS へ飛ばす。
@@ -43,10 +45,31 @@ export default {
       headers.set(name, value);
     }
 
+    // 本番は検索結果に出さない。ログインの向こう側は元々見えないが、
+    // ログイン画面が拾われるのも避けたい。
+    // デモは逆に見つかってほしいので付けない。
+    if (env.DEMO_MODE !== "true") {
+      headers.set("X-Robots-Tag", "noindex, nofollow");
+    }
+
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
       headers,
     });
+  },
+
+  /**
+   * デモ環境のデータを毎日初期状態へ戻す（cron の登録は wrangler.jsonc の env.demo）。
+   *
+   * **DEMO_MODE の確認を外さないこと。** 本番でこれが走るとご両親のデータが消える。
+   */
+  async scheduled(_controller, env) {
+    if (env.DEMO_MODE !== "true") return;
+
+    const result = await resetDemoData(env.DB);
+    console.log(
+      `demo reset: organization=${result.organizationId} statements=${result.statements}`,
+    );
   },
 } satisfies ExportedHandler<Env>;

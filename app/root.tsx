@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import {
   isRouteErrorResponse,
   Links,
@@ -9,6 +10,7 @@ import {
 } from "react-router";
 
 import { getAppSession } from "~/lib/auth.server";
+import { DEMO_RESET_AT, REPO_URL } from "~/lib/demo";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -69,14 +71,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export async function loader({ request }: Route.LoaderArgs) {
   // 認証を要求しない。ログイン画面でもこの loader は走る
-  return { session: await getAppSession(request) };
+  return {
+    session: await getAppSession(request),
+    isDemo: env.DEMO_MODE === "true",
+  };
 }
 
 export default function App({ loaderData }: Route.ComponentProps) {
-  if (!loaderData.session) return <Outlet />;
+  const { session, isDemo } = loaderData;
+
+  // ログイン前でも帯は出す。デモだと分かるのが早いほうがいい
+  if (!session) {
+    return (
+      <>
+        {isDemo && <DemoBanner />}
+        <Outlet />
+      </>
+    );
+  }
 
   return (
     <>
+      {isDemo && <DemoBanner />}
       <header className="border-b border-slate-200 bg-white">
         {/*
           左右の余白を詰めて、狭い画面でも6つが1行に収まるようにしている。
@@ -101,6 +117,34 @@ export default function App({ loaderData }: Route.ComponentProps) {
       </header>
       <Outlet />
     </>
+  );
+}
+
+/**
+ * デモ環境の帯。
+ *
+ * アプリの見た目と地続きにならないよう、濃い色でヘッダーの外側に置く。
+ * 「壊しても平気」と最初に伝わることが、デモでは何より効く。
+ */
+function DemoBanner() {
+  return (
+    <div className="bg-slate-900 px-4 py-2 text-xs text-slate-200 sm:text-sm">
+      <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="rounded bg-amber-400 px-2 py-0.5 text-xs font-bold text-slate-900">
+          デモ
+        </span>
+        {/* 狭い画面で行数が増えないよう、文は1つに切り詰めている */}
+        <span>架空のデータです。自由に触れます（{DEMO_RESET_AT}初期化）</span>
+        <a
+          href={REPO_URL}
+          className="underline underline-offset-2 hover:text-white sm:ml-auto"
+          target="_blank"
+          rel="noreferrer"
+        >
+          ソースコード
+        </a>
+      </div>
+    </div>
   );
 }
 

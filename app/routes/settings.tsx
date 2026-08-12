@@ -33,9 +33,29 @@ export async function loader({ request }: Route.LoaderArgs) {
   };
 }
 
+/**
+ * デモで動作を止める操作。
+ *
+ * どれも通ればデモ環境そのものを壊せてしまう。
+ * パスワードを変えられればログインできなくなり、招待を発行できれば
+ * 見学者が任意のアカウントを作れる。日次リセットは業務データしか戻さない
+ * （@see database/services/demo-reset.server.ts）ので、ここで止める必要がある。
+ *
+ * 画面は消さずに動作だけ止める。何ができるアプリなのかは見せたい。
+ */
+const DEMO_BLOCKED_INTENTS = new Set(["change_password", "invite", "revoke", "issue_reset"]);
+
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
   const intent = form.get("intent");
+
+  if (env.DEMO_MODE === "true" && DEMO_BLOCKED_INTENTS.has(String(intent))) {
+    // ログインしていない相手には何も教えない
+    await requireOrg(request);
+    return {
+      demoBlocked: "デモではアカウントに関わる操作はできません。部屋や修繕は自由に触れます",
+    };
+  }
 
   // パスワード変更は管理者でなくても自分自身に対して行える
   if (intent === "change_password") {
@@ -122,6 +142,13 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
   return (
     <main className="mx-auto max-w-2xl px-4 py-6 pb-16">
       <h1 className="text-2xl font-bold">設定</h1>
+
+      {/* どのフォームから来ても見えるよう、いちばん上に出す */}
+      {actionData?.demoBlocked && (
+        <p className="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-base text-amber-900">
+          {actionData.demoBlocked}
+        </p>
+      )}
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="text-lg font-bold">ログイン中</h2>

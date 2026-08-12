@@ -4,6 +4,7 @@ import { Form, Link, redirect } from "react-router";
 import { createDatabase } from "@db/context.server";
 import { clientKey, consumeAttempt, resetAttempts } from "@db/services/rate-limit.server";
 import { cookieHeaders, getAppSession, getAuth } from "~/lib/auth.server";
+import { DEMO_EMAIL, DEMO_PASSWORD } from "~/lib/demo";
 import type { Route } from "./+types/login";
 
 export function meta(_: Route.MetaArgs) {
@@ -13,7 +14,11 @@ export function meta(_: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   if (await getAppSession(request)) throw redirect("/");
   const params = new URL(request.url).searchParams;
-  return { next: params.get("next") ?? "/", justReset: params.get("reset") === "1" };
+  return {
+    next: params.get("next") ?? "/",
+    justReset: params.get("reset") === "1",
+    isDemo: env.DEMO_MODE === "true",
+  };
 }
 
 /** 総当たり対策。同一IP × 同一メールで 1 分に 5 回まで */
@@ -55,9 +60,27 @@ function safeNext(next: string): string {
 }
 
 export default function Login({ loaderData, actionData }: Route.ComponentProps) {
+  const { isDemo } = loaderData;
+
   return (
     <main className="mx-auto max-w-sm px-4 py-12">
       <h1 className="text-2xl font-bold">ログイン</h1>
+
+      {/*
+        デモでは入力欄を埋めておくが、パスワード管理ソフトに上書きされることが
+        あるので、値そのものも読める形で出しておく。
+      */}
+      {isDemo && (
+        <div className="mt-4 rounded-xl border border-sky-300 bg-sky-50 px-4 py-3 text-base text-sky-900">
+          <p className="font-medium">デモ用のアカウントを入力済みです</p>
+          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 text-sm">
+            <dt className="text-sky-700">メール</dt>
+            <dd className="font-mono">{DEMO_EMAIL}</dd>
+            <dt className="text-sky-700">パスワード</dt>
+            <dd className="font-mono">{DEMO_PASSWORD}</dd>
+          </dl>
+        </div>
+      )}
 
       {loaderData.justReset && (
         <p className="mt-4 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base text-emerald-900">
@@ -79,6 +102,7 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
             type="email"
             name="email"
             required
+            defaultValue={isDemo ? DEMO_EMAIL : undefined}
             autoComplete="username"
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
           />
@@ -89,6 +113,7 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
             type="password"
             name="password"
             required
+            defaultValue={isDemo ? DEMO_PASSWORD : undefined}
             autoComplete="current-password"
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
           />

@@ -51,7 +51,68 @@
 			"database_id": "060e222d-8aea-4159-8445-976afe88ab93",
 			"migrations_dir": "database/migrations"
 		}
-	]
+	],
+	/**
+	 * デモかどうか。本番は必ず "false"。
+	 * これ以外にデモと本番を分けるフラグを増やさないこと（増やすと分岐が散る）。
+	 */
+	"vars": {
+		"DEMO_MODE": "false"
+	},
+	/**
+	 * ==================================================================
+	 * デモ環境
+	 * ==================================================================
+	 * **本番と同じコードを配る。コードを分岐させるのは DEMO_MODE だけ。**
+	 * デプロイは必ず デモ → 本番 の順で行う（デモが本番の予行演習になる）。
+	 *
+	 *   npm run deploy:demo    # chomen-demo.kazuki.page
+	 *   npm run deploy         # chomen.kazuki.page
+	 *
+	 * Worker も D1 も本番とは完全に別物で、本番データには一切触れない。
+	 * デモには RESEND_API_KEY を登録しないこと（メールは送信されず警告ログのみになる）。
+	 *
+	 * 環境ごとに継承されない設定（name / routes / vars / d1_databases /
+	 * triggers など）は、ここで全部書き直す必要がある。
+	 */
+	"env": {
+		"demo": {
+			"name": "chomen-demo",
+			"preview_urls": false,
+			"workers_dev": false,
+			"routes": [
+				{
+					"pattern": "chomen-demo.kazuki.page",
+					"custom_domain": true
+				}
+			],
+			"observability": {
+				"enabled": true
+			},
+			"upload_source_maps": true,
+			"vars": {
+				"DEMO_MODE": "true"
+			},
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "chomen-demo-db",
+					"database_id": "6af0db9d-4a85-4815-9676-77084edf874f",
+					"migrations_dir": "database/migrations"
+				}
+			],
+			/**
+			 * 毎日 19:00 UTC（日本時間 翌 04:00）にデモのデータを初期状態へ戻す。
+			 * 見学者が何をしても翌朝には元に戻る、という前提で書き込みを開放している。
+			 * 実体は workers/app.ts の scheduled ハンドラ。
+			 */
+			"triggers": {
+				"crons": [
+					"0 19 * * *"
+				]
+			}
+		}
+	}
 	/**
 	 * R2（修繕写真・設備銘板写真・請求書の撮影）
 	 *

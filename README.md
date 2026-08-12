@@ -5,7 +5,11 @@
 実家で所有する賃貸マンション（1棟40室・駐車場5台）の管理業務を対象とした Web アプリケーション（PWA）。
 現在 Notion で運用している業務を置き換えることを目的とする。
 
-**本番**: https://chomen.kazuki.page
+**デモ**: https://chomen-demo.kazuki.page （`demo@example.com` / `demo1234`）
+
+架空のデータが入った、自由に触れる環境。入力欄はあらかじめ埋めてある。
+書き込みも削除もできて、毎日 朝4時ごろに初期状態へ戻る。
+アカウントに関わる操作（パスワード変更・招待）だけは画面を残して動作を止めてある。
 
 ## 解決したい課題
 
@@ -54,7 +58,35 @@ npm run dev
 | `npm run dev` | 開発サーバー |
 | `npm run build` | ビルド |
 | `npm run typecheck` | 型チェック |
-| `npm run deploy` | Cloudflare へデプロイ |
+| `npm run deploy:demo` | デモ環境へデプロイ |
+| `npm run deploy` | 本番へデプロイ |
+
+### 環境
+
+本番とデモは**同じコードを配るだけ**で、リポジトリもブランチも1つ。
+差分は環境変数 `DEMO_MODE` だけに閉じ込めてあり、ここに条件分岐を増やさない。
+
+| | 本番 | デモ |
+|---|---|---|
+| URL | chomen.kazuki.page | chomen-demo.kazuki.page |
+| Worker | `oyasan-app` | `chomen-demo` |
+| D1 | `oyasan-app-db` | `chomen-demo-db` |
+| メール送信 | あり | なし（キーを登録しない） |
+| 検索エンジン | 拒否 | 許可 |
+
+**デプロイは必ず デモ → 本番 の順に行う。** デモが本番の予行演習になる。
+スキーマを変えたときは、それぞれのデータベースに移行を当てる必要がある。
+
+```bash
+npm run db:migrate:demo    # デモの D1 に移行を適用
+npm run deploy:demo        # デモで確認してから
+npm run db:migrate:remote  # 本番の D1 に移行を適用
+npm run deploy             # 本番へ
+```
+
+デモのデータは cron（`wrangler.jsonc` の `env.demo`）で毎日リセットされる。
+実体は `workers/app.ts` の `scheduled` で、消すのは業務データだけ。
+ログイン情報を消すと見学者が入れなくなるため残している。
 
 ## ステータス
 
@@ -73,6 +105,8 @@ MVP 実装中。
 | 更新期限の通知 | 未（Phase 3） |
 
 ## セットアップ
+
+Node 22.18 以上（シード生成が TypeScript を直接読むため）。
 
 ```bash
 npm install
