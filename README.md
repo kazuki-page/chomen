@@ -68,7 +68,7 @@ npm run dev
 
 | | 本番 | デモ |
 |---|---|---|
-| URL | chomen.kazuki.page | chomen-demo.kazuki.page |
+| URL | 家族用のため非公開 | chomen-demo.kazuki.page |
 | Worker | `oyasan-app` | `chomen-demo` |
 | D1 | `oyasan-app-db` | `chomen-demo-db` |
 | メール送信 | あり | なし（キーを登録しない） |
