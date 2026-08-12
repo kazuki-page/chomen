@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 
 import type { OrgContext } from "../context.server";
 import { buildings, units } from "../schema";
@@ -16,9 +16,18 @@ export async function listBuildings(ctx: OrgContext): Promise<BuildingListItem[]
       id: buildings.id,
       name: buildings.name,
       address: buildings.address,
-      unitCount: sql<number>`(
-        select count(*) from units u where u.building_id = ${buildings.id}
-      )`,
+      /**
+       * 生の sql`` で相関副問い合わせを書かないこと。
+       *
+       * 結合の無いクエリでは Drizzle が `${buildings.id}` をテーブル名なしの
+       * `"id"` として出力する。副問い合わせの中では内側のテーブルが先に
+       * 解決されるため `units.id` との比較になり、常に0件になっていた。
+       * $count なら Drizzle が `"buildings"."id"` まで修飾してくれる。
+       */
+      unitCount: ctx.db.$count(
+        units,
+        and(eq(units.buildingId, buildings.id), eq(units.organizationId, ctx.organizationId)),
+      ),
     })
     .from(buildings)
     .where(eq(buildings.organizationId, ctx.organizationId))
