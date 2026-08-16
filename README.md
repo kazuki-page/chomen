@@ -36,8 +36,8 @@
 | ビルド | Vite + `@cloudflare/vite-plugin` |
 | スタイル | Tailwind CSS v4 |
 | DB | Cloudflare D1 (SQLite) + Drizzle ORM |
-| ストレージ | Cloudflare R2 |
 | 認証 | Better Auth（招待制） |
+| メール送信 | Resend（Workers から SMTP は使えないため HTTP API） |
 
 ## ドキュメント
 

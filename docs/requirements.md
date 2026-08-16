@@ -388,7 +388,7 @@ chomen-demo.example.com  デモ環境
 | スタイル | **Tailwind CSS v4** | 公式テンプレートに同梱 |
 | DB | **Cloudflare D1**（SQLite） | Workers ネイティブ。本アプリの規模（40室）に対して十分 |
 | ORM | **Drizzle** | D1 対応が良好。型安全なマイグレーション |
-| ストレージ | **Cloudflare R2** | 修繕写真・設備銘板写真。エグレス無料 |
+| ストレージ | **Cloudflare R2**（Phase 2・未導入） | 修繕写真・設備銘板写真。エグレス無料 |
 | 認証 | **Better Auth** | Workers / D1 対応。招待制のため実装は軽量 |
 
 > **注意**: D1 には Postgres のような Row Level Security が存在しない。
@@ -446,4 +446,4 @@ chomen-demo.example.com  デモ環境
 | 4 | ~~家賃改定の履歴を残すか~~ | **決定**: 改定履歴として保持し、更新手続きから生成する（4.2 RentRevision 参照） |
 | 5 | 業者マスタの要否 | 修繕を依頼する業者を「マスタとして登録して案件から参照する」か「案件ごとにテキスト入力する」か。Phase 2 で判断 |
 | 6 | ~~ホスティング構成~~ | **決定**: Cloudflare + サブドメイン方式（7章参照） |
-| 7 | ~~技術スタック~~ | **決定**: React Router v7 + D1 + Drizzle + R2 + Better Auth（7.5参照） |
+| 7 | ~~技術スタック~~ | **決定**: React Router v8 + D1 + Drizzle + Better Auth（7.5参照）。R2 は Phase 2 |
