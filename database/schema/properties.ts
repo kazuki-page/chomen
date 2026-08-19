@@ -5,7 +5,7 @@ import { organizations } from "./organizations";
 
 /**
  * 建物。
- * 当面は1棟だが、複数棟を前提とした構造にしておく。
+ * 複数棟を前提とした構造にしておく。
  */
 export const buildings = sqliteTable(
   "buildings",
