@@ -4,6 +4,37 @@
   /* Web フォントは読み込まず OS 標準に任せる（日本語は端末標準が最も読みやすい） */
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP",
     "Yu Gothic UI", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+
+  /*
+   * ブランド色。
+   *
+   * 画面側のクラス名（bg-sky-600 など）は変えずに、**色の定義だけを差し替える。**
+   * 色クラスは500か所近くあり、1つずつ書き換えるとレビューできない差分になるため。
+   *
+   *   sky-*   … 紺 #003156 を主色とする段階色（ボタン・リンク・見出し）
+   *   amber-* … 黄 #FFB94D を基準とする段階色（注意・強調）
+   *   sky-50  … 薄水色 #e8f1ff。アイコンの家の面と同じ色
+   */
+  --color-sky-50: #e8f1ff;
+  --color-sky-100: #d3e3f7;
+  --color-sky-200: #a7c6e8;
+  --color-sky-300: #6fa1d0;
+  --color-sky-400: #3d7bb3;
+  --color-sky-500: #14568c;
+  --color-sky-600: #003156;
+  --color-sky-700: #002845;
+  --color-sky-800: #001e35;
+  --color-sky-900: #001526;
+
+  --color-amber-50: #fff7ea;
+  --color-amber-100: #ffedd2;
+  --color-amber-200: #ffdca8;
+  --color-amber-300: #ffcb7e;
+  --color-amber-400: #ffb94d;
+  --color-amber-500: #f0a52f;
+  --color-amber-700: #9a5c00;
+  --color-amber-800: #7a4800;
+  --color-amber-900: #5c3600;
 }
 
 /*
@@ -17,7 +48,7 @@ html {
 
 html,
 body {
-  @apply bg-slate-50 text-slate-900;
+  @apply bg-sky-50 text-slate-900;
 }
 
 /*

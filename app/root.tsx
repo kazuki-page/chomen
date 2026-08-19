@@ -49,7 +49,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#0f172a" />
+        <meta name="theme-color" content="#003156" />
         {/* iOS 16.3 以前はこれが無いとブラウザの枠が付いたまま開く */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -59,7 +59,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <Links />
       </head>
-      <body className="bg-slate-50 text-slate-900">
+      <body className="bg-sky-50 text-slate-900">
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -128,7 +128,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
  */
 function DemoBanner() {
   return (
-    <div className="bg-slate-900 px-4 py-2 text-xs text-slate-200 sm:text-sm">
+    <div className="bg-sky-900 px-4 py-2 text-xs text-sky-100 sm:text-sm">
       <div className="mx-auto flex max-w-4xl flex-wrap items-center gap-x-3 gap-y-1">
         <span className="rounded bg-amber-400 px-2 py-0.5 text-xs font-bold text-slate-900">
           デモ
@@ -170,7 +170,7 @@ function NavItem({
         // アイコンでも文字タブと同じ大きさで押せるように、高さを揃えて中央に置く。
         // leading-tight は、幅の足りない端末で折り返したときに2文字の隙間を詰めるため
         `flex min-h-12 items-center justify-center rounded-lg px-2 py-2 text-base font-medium leading-tight sm:px-4 ${
-          isActive ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+          isActive ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-sky-50"
         }`
       }
     >
