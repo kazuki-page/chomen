@@ -18,10 +18,10 @@ export const DEMO_RESET_AT = "毎日 朝4時ごろ";
 export const REPO_URL = "https://github.com/kazuki-page/chomen";
 
 /**
- * OGP が指す先。**デモに固定する。**
+ * OGP の絶対URLを組み立てられなかったときの逃げ道。
  *
- * 共有されるのはデモの URL だけで、本番は家族用のため公開していない。
- * リクエストのオリジンから組み立てることもできるが、そのために
- * ルートごとの meta を触ると、各画面が持つ title の扱いが複雑になる。
+ * 通常はリクエストのオリジンを使うため、この値は出番がない
+ * （root の loader が失敗して Layout だけが描画される場合に限る）。
+ * 公開してよい URL はデモだけなので、既定値もデモにしてある。
  */
 export const DEMO_ORIGIN = "https://chomen-demo.kazuki.page";
