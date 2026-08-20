@@ -7,6 +7,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useRouteLoaderData,
 } from "react-router";
 
 import { getAppSession } from "~/lib/auth.server";
@@ -43,12 +44,37 @@ if ("serviceWorker" in navigator) {
 }
 `;
 
-const OG_DESCRIPTION =
-  "空室と現在の家賃は保存せず、契約と改定履歴から導き出す。入居・更新・退居の手順は" +
-  "チェックリストとしてアプリに埋め込み、運用マニュアルを不要にした。" +
-  "React Router v8 + Cloudflare Workers / D1。架空データのデモを公開中。";
+/**
+ * SNS やメッセンジャーに貼られたときのカード。
+ *
+ * デモと本番で中身を変える。読む相手が違うため。
+ *   デモ … 見に来てもらうためのもの。何を解いたアプリかを説明する
+ *   本番 … 家族がURLを送り合ったときに出るもの。宣伝文句は邪魔になる
+ */
+const OG = {
+  demo: {
+    image: "/og-image-demo.png",
+    description:
+      "空室と現在の家賃は保存せず、契約と改定履歴から導き出す。入居・更新・退居の手順は" +
+      "チェックリストとしてアプリに埋め込み、運用マニュアルを不要にした。" +
+      "React Router v8 + Cloudflare Workers / D1。架空データのデモを公開中。",
+  },
+  app: {
+    image: "/og-image.png",
+    description: "賃貸物件の入居者・修繕管理アプリ。部屋・契約・手続き・修繕をまとめて見る。",
+  },
+} as const;
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  /*
+   * URL は環境ごとに違うため、リクエストのオリジンから組み立てる。
+   * Layout はルートの loader が失敗したときにも描画されるので、
+   * データが無い場合に備えて既定値を置いている。
+   */
+  const data = useRouteLoaderData<typeof loader>("root");
+  const origin = data?.origin ?? DEMO_ORIGIN;
+  const og = data?.isDemo ?? true ? OG.demo : OG.app;
+
   return (
     <html lang="ja">
       <head>
@@ -70,13 +96,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta property="og:type" content="website" />
         <meta property="og:site_name" content="家主の帳面" />
         <meta property="og:title" content="家主の帳面 — 賃貸物件の入居者・修繕管理アプリ" />
-        <meta property="og:description" content={OG_DESCRIPTION} />
-        <meta property="og:url" content={DEMO_ORIGIN} />
-        <meta property="og:image" content={`${DEMO_ORIGIN}/og-image.png`} />
+        <meta property="og:description" content={og.description} />
+        <meta property="og:url" content={origin} />
+        <meta property="og:image" content={`${origin}${og.image}`} />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="description" content={OG_DESCRIPTION} />
+        <meta name="description" content={og.description} />
         <Meta />
         <Links />
       </head>
@@ -95,6 +121,8 @@ export async function loader({ request }: Route.LoaderArgs) {
   return {
     session: await getAppSession(request),
     isDemo: env.DEMO_MODE === "true",
+    // OGP の絶対URLを組み立てるのに使う。環境ごとにドメインが違う
+    origin: new URL(request.url).origin,
   };
 }
 
