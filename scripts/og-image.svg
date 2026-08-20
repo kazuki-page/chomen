@@ -12,10 +12,10 @@
     <rect x="45.5" y="64.5" width="9" height="9" rx="1.4" fill="#FFB94D"/>
   </g>
   <text x="80" y="268" font-size="78" font-weight="700" fill="#ffffff">家主の帳面</text>
-  <text x="80" y="324" font-size="30" fill="#a7c6e8">賃貸物件の入居者・修繕管理アプリ</text>
-  <line x1="80" y1="418" x2="540" y2="418" stroke="#6fa1d0" stroke-width="2" opacity="0.45"/>
-  <text x="80" y="472" font-size="24" fill="#6fa1d0">React Router v8 / Cloudflare Workers / D1</text>
-  <text x="80" y="512" font-size="24" fill="#6fa1d0">chomen-demo.kazuki.page</text>
+  <text x="80" y="322" font-size="27" fill="#a7c6e8">賃貸物件の入居者・修繕管理アプリ</text>
+  <line x1="80" y1="418" x2="500" y2="418" stroke="#6fa1d0" stroke-width="2" opacity="0.45"/>
+  <text x="80" y="470" font-size="20" fill="#6fa1d0">React Router v8 / Cloudflare Workers / D1</text>
+  <text x="80" y="506" font-size="20" fill="#6fa1d0">chomen-demo.kazuki.page</text>
 <rect x="620" y="70" width="520" height="490" rx="20" fill="#ffffff"/>
 <text x="644" y="116" font-size="26" font-weight="700" fill="#0f172a">部屋・駐車場</text>
 <line x1="644" y1="134" x2="1116" y2="134" stroke="#e2e8f0" stroke-width="2"/>
