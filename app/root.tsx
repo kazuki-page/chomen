@@ -142,7 +142,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
   return (
     <>
       {isDemo && <DemoBanner />}
-      <header className="border-b border-slate-200 bg-white">
+      <header className="bg-sky-600 text-white">
         {/*
           左右の余白を詰めて、狭い画面でも6つが1行に収まるようにしている。
           必要な幅は 332px なので、いまどきの Android（360px 以上）なら折り返さない。
@@ -217,9 +217,10 @@ function NavItem({
       end={to === "/"}
       className={({ isActive }) =>
         // アイコンでも文字タブと同じ大きさで押せるように、高さを揃えて中央に置く。
-        // leading-tight は、幅の足りない端末で折り返したときに2文字の隙間を詰めるため
+        // leading-tight は、幅の足りない端末で折り返したときに2文字の隙間を詰めるため。
+        // 紺地なので、選択中を白く抜いて本文のカードと同じ面に見せる
         `flex min-h-12 items-center justify-center rounded-lg px-2 py-2 text-base font-medium leading-tight sm:px-4 ${
-          isActive ? "bg-sky-600 text-white" : "text-slate-600 hover:bg-sky-50"
+          isActive ? "bg-white text-sky-700 shadow-sm" : "text-sky-100 hover:bg-white/15"
         }`
       }
     >
