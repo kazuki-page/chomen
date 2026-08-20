@@ -151,7 +151,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
       )}
 
       <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-bold">ログイン中</h2>
+        <h2 className="text-xl font-bold text-sky-800">ログイン中</h2>
         <p className="mt-2 text-base">
           {session.user.name}（{session.user.email}）
           <span className="ml-2 rounded-full bg-slate-100 px-3 py-1 text-sm">
@@ -169,7 +169,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-bold">パスワードの変更</h2>
+        <h2 className="text-xl font-bold text-sky-800">パスワードの変更</h2>
 
         {passwordChanged && (
           <p className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base text-emerald-900">
@@ -220,7 +220,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
 
       <section className="mt-8">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-bold">物件</h2>
+          <h2 className="text-xl font-bold text-sky-800">物件</h2>
           <Link to="/buildings/new" className="text-base font-medium text-sky-700 hover:underline">
             ＋ 建物を追加
           </Link>
@@ -254,7 +254,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-bold">メンバー</h2>
+        <h2 className="text-xl font-bold text-sky-800">メンバー</h2>
         {isAdmin && (
           <p className="mt-1 text-base text-slate-600">
             パスワードを忘れた人には、ここから再設定リンクを発行して渡します。
@@ -306,7 +306,7 @@ export default function Settings({ loaderData, actionData }: Route.ComponentProp
       {isAdmin && (
         <>
           <section className="mt-8">
-            <h2 className="text-lg font-bold">招待</h2>
+            <h2 className="text-xl font-bold text-sky-800">招待</h2>
             <p className="mt-1 text-base text-slate-600">
               一般公開の登録はありません。発行したリンクを直接渡してください。
             </p>

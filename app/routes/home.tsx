@@ -1,5 +1,7 @@
 import { Link } from "react-router";
 
+import { Badge, ListCard, Progress } from "~/components/list-card";
+
 import {
   listLaterRenewals,
   listOpenProcedures,
@@ -158,7 +160,7 @@ function Section({
 }) {
   return (
     <section className="mt-8">
-      <h2 className="text-lg font-bold">
+      <h2 className="text-xl font-bold text-sky-800">
         {title}
         <span className="ml-2 text-base font-medium text-slate-500">({count})</span>
       </h2>
@@ -177,65 +179,47 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 function ProcedureRow({ procedure }: { procedure: ProcedureSummary }) {
   return (
-    <li>
-      <Link
-        to={`/procedures/${procedure.id}`}
-        className="block rounded-xl border border-slate-200 bg-white p-4 hover:border-slate-400"
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-xl font-bold tabular-nums">{procedure.unitCode}</span>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
-            {procedure.typeLabel}
-          </span>
-          <span className="ml-auto text-sm text-slate-500 tabular-nums">
-            {procedure.doneCount}/{procedure.totalCount}
-          </span>
-        </div>
-        <p className="mt-2 text-lg font-medium text-slate-900">
-          {procedure.nextItemLabel ?? "完了できます"}
-        </p>
-        <p className="mt-1 flex flex-wrap gap-x-2 text-sm text-slate-500">
+    <ListCard
+      to={`/procedures/${procedure.id}`}
+      accent={procedure.typeLabel === "修繕" ? "amber" : "navy"}
+      badge={{ label: procedure.typeLabel, tone: "navy" }}
+      code={`${procedure.unitCode}号室`}
+      right={<Progress done={procedure.doneCount} total={procedure.totalCount} />}
+      title={procedure.nextItemLabel ?? "完了できます"}
+      meta={
+        <>
           {procedure.scheduledOn && (
             <span className="tabular-nums">予定日 {formatSlash(procedure.scheduledOn)}</span>
           )}
-          {procedure.tenantName && <span>{procedure.tenantName}</span>}
-        </p>
-      </Link>
-    </li>
+          {procedure.tenantName && <span>・ {procedure.tenantName}</span>}
+        </>
+      }
+    />
   );
 }
 
 function WorkOrderRow({ workOrder }: { workOrder: WorkOrderListItem }) {
   return (
-    <li>
-      <Link
-        to={`/work-orders/${workOrder.id}`}
-        className={`block rounded-xl border p-4 hover:border-slate-400 ${
-          workOrder.isStale ? "border-rose-300 bg-rose-50" : "border-slate-200 bg-white"
-        }`}
-      >
-        <div className="flex items-center gap-3">
-        <span className="text-xl font-bold tabular-nums">
-          {workOrder.unitCode ?? workOrder.locationNote ?? "共用部"}
-        </span>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
-          修繕
-        </span>
-        {workOrder.isStale && (
-          <span className="ml-auto text-sm font-bold text-rose-700">
-            {workOrder.staleDays}日 動きなし
-          </span>
-        )}
-      </div>
-        <p className="mt-2 text-lg font-medium text-slate-900">{workOrder.title}</p>
-        <p className="mt-1 flex flex-wrap gap-x-2 text-sm text-slate-600">
+    <ListCard
+      to={`/work-orders/${workOrder.id}`}
+      accent={workOrder.isStale ? "rose" : "amber"}
+      badge={{ label: "修繕", tone: workOrder.isStale ? "rose" : "amber" }}
+      code={workOrder.unitCode ? `${workOrder.unitCode}号室` : (workOrder.locationNote ?? "共用部")}
+      right={
+        workOrder.isStale ? (
+          <Badge tone="rose">{workOrder.staleDays}日 動きなし</Badge>
+        ) : undefined
+      }
+      title={workOrder.title}
+      meta={
+        <>
           <span className="tabular-nums">発生 {formatSlash(workOrder.occurredOn)}</span>
           <span>
-            {workOrder.handlerLabel}
+            ・ {workOrder.handlerLabel}
             {workOrder.waitingOn ? ` — ${workOrder.waitingOn}まち` : ""}
           </span>
-        </p>
-      </Link>
-    </li>
+        </>
+      }
+    />
   );
 }

@@ -1,5 +1,7 @@
 import { Form, Link, useSearchParams } from "react-router";
 
+import { Badge, ListCard } from "~/components/list-card";
+
 import { listUnitOptions } from "@db/repositories/units.server";
 import {
   listWorkOrderYears,
@@ -149,38 +151,30 @@ function FilterLink({ to, label, active }: { to: string; label: string; active: 
 function WorkOrderRow({ workOrder }: { workOrder: WorkOrderListItem }) {
   const done = workOrder.status === "done";
   return (
-    <li>
-      <Link
-        to={`/work-orders/${workOrder.id}`}
-        className={`block rounded-xl border p-4 hover:border-slate-400 ${
-          workOrder.isStale ? "border-rose-300 bg-rose-50" : "border-slate-200 bg-white"
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-xl font-bold tabular-nums">
-            {workOrder.unitCode ?? workOrder.locationNote ?? "共用部"}
+    <ListCard
+      to={`/work-orders/${workOrder.id}`}
+      accent={workOrder.isStale ? "rose" : done ? "slate" : "amber"}
+      badge={{
+        label: WORK_ORDER_STATUS_LABELS[workOrder.status],
+        tone: done ? "emerald" : workOrder.isStale ? "rose" : "amber",
+      }}
+      code={workOrder.unitCode ? `${workOrder.unitCode}号室` : (workOrder.locationNote ?? "共用部")}
+      right={
+        workOrder.isStale ? (
+          <Badge tone="rose">{workOrder.staleDays}日 動きなし</Badge>
+        ) : undefined
+      }
+      title={workOrder.title}
+      muted={done}
+      meta={
+        <>
+          <span className="tabular-nums">{formatJa(workOrder.occurredOn)}</span>
+          <span>
+            ・ {workOrder.handlerLabel}
+            {workOrder.waitingOn ? ` ・ ${workOrder.waitingOn}まち` : ""}
           </span>
-          <span
-            className={`rounded-full px-3 py-1 text-sm font-medium ${
-              done ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-700"
-            }`}
-          >
-            {WORK_ORDER_STATUS_LABELS[workOrder.status]}
-          </span>
-          {workOrder.isStale && (
-            <span className="ml-auto text-sm font-bold text-rose-700">
-              {workOrder.staleDays}日 動きなし
-            </span>
-          )}
-        </div>
-        <p className={`mt-2 text-lg font-medium ${done ? "text-slate-500" : ""}`}>
-          {workOrder.title}
-        </p>
-        <p className="mt-1 text-sm text-slate-600">
-          {formatJa(workOrder.occurredOn)} ・ {workOrder.handlerLabel}
-          {workOrder.waitingOn ? ` ・ ${workOrder.waitingOn}まち` : ""}
-        </p>
-      </Link>
-    </li>
+        </>
+      }
+    />
   );
 }

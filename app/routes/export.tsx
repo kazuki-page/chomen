@@ -18,7 +18,7 @@ export default function Export() {
       <h1 className="text-2xl font-bold">書き出し</h1>
 
       <section className="mt-6">
-        <h2 className="text-lg font-bold">印刷する</h2>
+        <h2 className="text-xl font-bold text-sky-800">印刷する</h2>
         <p className="mt-1 text-base text-slate-600">
           開いてから「印刷する」を押してください。印刷ダイアログで
           <strong>「PDFとして保存」</strong>を選べば PDF になります。
@@ -43,7 +43,7 @@ export default function Export() {
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-bold">CSVで保存する</h2>
+        <h2 className="text-xl font-bold text-sky-800">CSVで保存する</h2>
         <p className="mt-1 text-base text-slate-600">
           Excel で開けます。契約の列は一括登録と同じ並びなので、
           <strong>書き出して直して読み込み直す</strong>こともできます。

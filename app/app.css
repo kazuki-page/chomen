@@ -52,6 +52,43 @@ body {
 }
 
 /*
+ * 折りたたみの見出し。
+ *
+ * ブラウザ標準の三角マーク（▶）を消し、右端に自前の矢印を出す。
+ * 標準のままだと素朴に見えるうえ、行頭に置かれるため見出しの左端が揃わない。
+ * 開いているときは下向きになり、状態が形で分かる。
+ */
+details > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+details > summary::after {
+  content: "";
+  margin-left: auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  border-right: 2.5px solid currentColor;
+  border-bottom: 2.5px solid currentColor;
+  border-radius: 1px;
+  opacity: 0.5;
+  transform: rotate(-45deg);
+  transition: transform 150ms ease;
+}
+
+details[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+/*
  * 印刷用の調整。
  * PDF はサーバーで生成せず、この印刷レイアウトから
  * ブラウザの「PDFとして保存」で作ってもらう。

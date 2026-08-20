@@ -172,7 +172,7 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
 
       {unit.lease ? (
         <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="text-lg font-bold">契約</h2>
+          <h2 className="text-xl font-bold text-sky-800">契約</h2>
           <dl className="mt-3 space-y-2 text-base">
             <Row label="入居者" value={unit.lease.tenantName ?? "—"} />
             <Row
@@ -403,7 +403,7 @@ function ListingForm({
         notSet ? "border-amber-400 bg-amber-50" : "border-slate-200 bg-white"
       }`}
     >
-      <h2 className="text-lg font-bold">募集内容</h2>
+      <h2 className="text-xl font-bold text-sky-800">募集内容</h2>
       {notSet && (
         <p className="mt-1 text-base text-amber-900">
           募集家賃が未設定です。入力すると一覧と空室リストに表示されます。
@@ -755,7 +755,7 @@ function EquipmentSection({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-8">
-      <h2 className="text-lg font-bold">{title}</h2>
+      <h2 className="text-xl font-bold text-sky-800">{title}</h2>
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -771,9 +771,9 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-2">
-      <dt className="text-slate-500">{label}</dt>
-      <dd className="font-medium tabular-nums">{value}</dd>
+    <div className="flex items-baseline justify-between gap-2 border-b border-dashed border-slate-200 pb-1 last:border-0">
+      <dt className="shrink-0 text-slate-500">{label}</dt>
+      <dd className="font-bold tabular-nums">{value}</dd>
     </div>
   );
 }

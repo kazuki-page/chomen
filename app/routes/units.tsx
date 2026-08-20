@@ -1,5 +1,7 @@
 import { Link } from "react-router";
 
+import { CARD_SURFACE } from "~/components/list-card";
+
 import { listBuildings } from "@db/repositories/buildings.server";
 import { listUnits, summarize, type UnitListItem } from "@db/repositories/units.server";
 import { SENIOR_AGE, approximateAge, formatJa, todayInTokyo } from "~/lib/date";
@@ -166,7 +168,7 @@ function SummaryCard({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-8">
-      <h2 className="text-lg font-bold">{title}</h2>
+      <h2 className="text-xl font-bold text-sky-800">{title}</h2>
       <ul className="mt-3 grid gap-3 sm:grid-cols-2">{children}</ul>
     </section>
   );
@@ -178,10 +180,12 @@ function UnitCard({ unit, today }: { unit: UnitListItem; today: string }) {
     <li>
       <Link
         to={`/units/${unit.id}`}
-        className={`block rounded-xl border p-4 hover:border-slate-400 ${
-          unit.isVacant ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-white"
+        className={`relative block overflow-hidden p-4 pl-5 ${CARD_SURFACE} ${
+          unit.isVacant ? "bg-amber-50" : ""
         }`}
       >
+        {/* 色帯は空室にだけ付ける。全室に付けると目印にならない */}
+        {unit.isVacant && <span className="absolute inset-y-0 left-0 w-1.5 bg-amber-400" />}
       <div className="flex items-center justify-between gap-3">
         <span className="text-2xl font-bold tabular-nums">{unit.code}</span>
         {unit.isVacant ? (
@@ -216,9 +220,9 @@ function UnitCard({ unit, today }: { unit: UnitListItem; today: string }) {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between gap-2">
-      <dt className="text-slate-500">{label}</dt>
-      <dd className="font-medium tabular-nums">{value}</dd>
+    <div className="flex items-baseline justify-between gap-2 border-b border-dashed border-slate-200 pb-1 last:border-0">
+      <dt className="shrink-0 text-slate-500">{label}</dt>
+      <dd className="font-bold tabular-nums">{value}</dd>
     </div>
   );
 }
