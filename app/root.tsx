@@ -10,7 +10,7 @@ import {
 } from "react-router";
 
 import { getAppSession } from "~/lib/auth.server";
-import { DEMO_RESET_AT, REPO_URL } from "~/lib/demo";
+import { DEMO_ORIGIN, DEMO_RESET_AT, REPO_URL } from "~/lib/demo";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -43,6 +43,11 @@ if ("serviceWorker" in navigator) {
 }
 `;
 
+const OG_DESCRIPTION =
+  "空室と現在の家賃は保存せず、契約と改定履歴から導き出す。入居・更新・退居の手順は" +
+  "チェックリストとしてアプリに埋め込み、運用マニュアルを不要にした。" +
+  "React Router v8 + Cloudflare Workers / D1。架空データのデモを公開中。";
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
@@ -56,6 +61,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {/* ホーム画面のアイコン下に出る名前。長いと途中で切られるので短く */}
         <meta name="apple-mobile-web-app-title" content="帳面" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        {/*
+          SNS に貼られたときのカード。
+          ルートの meta ではなくここに直接置いている。React Router では
+          各画面の meta が親の meta を置き換えるため、meta 経由だと
+          title を持つ画面すべてで OGP が消えてしまう。
+        */}
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="家主の帳面" />
+        <meta property="og:title" content="家主の帳面 — 賃貸物件の入居者・修繕管理アプリ" />
+        <meta property="og:description" content={OG_DESCRIPTION} />
+        <meta property="og:url" content={DEMO_ORIGIN} />
+        <meta property="og:image" content={`${DEMO_ORIGIN}/og-image.png`} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="description" content={OG_DESCRIPTION} />
         <Meta />
         <Links />
       </head>
