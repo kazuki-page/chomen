@@ -21,7 +21,12 @@ import {
   RENT_REASON_LABELS,
   WORK_ORDER_STATUS_LABELS,
 } from "~/lib/constants";
-import { approximateAge, formatJa, formatSlash, todayInTokyo } from "~/lib/date";
+import {
+  approximateAge,
+  formatJa,
+  formatSlash,
+  todayInTokyo,
+} from "~/lib/date";
 import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/unit";
 
@@ -37,17 +42,27 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const unit = await getUnitDetail(ctx, params.unitId, { asOf: today });
   if (!unit) throw new Response("見つかりません", { status: 404 });
 
-  const [procedures, workOrders, equipment, rentHistory, leaseHistory] = await Promise.all([
-    listProceduresForUnit(ctx, unit.id),
-    listWorkOrders(ctx, { now: new Date(), unitId: unit.id }),
-    listEquipmentForUnit(ctx, unit.id),
-    listRentHistoryForUnit(ctx, unit.id),
-    listLeasesForUnit(ctx, unit.id),
-  ]);
+  const [procedures, workOrders, equipment, rentHistory, leaseHistory] =
+    await Promise.all([
+      listProceduresForUnit(ctx, unit.id),
+      listWorkOrders(ctx, { now: new Date(), unitId: unit.id }),
+      listEquipmentForUnit(ctx, unit.id),
+      listRentHistoryForUnit(ctx, unit.id),
+      listLeasesForUnit(ctx, unit.id),
+    ]);
 
   const deleted = new URL(request.url).searchParams.get("deleted");
 
-  return { unit, procedures, workOrders, equipment, rentHistory, leaseHistory, today, deleted };
+  return {
+    unit,
+    procedures,
+    workOrders,
+    equipment,
+    rentHistory,
+    leaseHistory,
+    today,
+    deleted,
+  };
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
@@ -56,8 +71,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   const intent = form.get("intent");
 
   if (intent === "start_move_out") {
-    const unit = await getUnitDetail(ctx, params.unitId, { asOf: todayInTokyo() });
-    if (!unit?.lease) throw new Response("契約中ではありません", { status: 400 });
+    const unit = await getUnitDetail(ctx, params.unitId, {
+      asOf: todayInTokyo(),
+    });
+    if (!unit?.lease)
+      throw new Response("契約中ではありません", { status: 400 });
 
     const procedureId = await startProcedure(ctx, {
       leaseId: unit.lease.id,
@@ -119,7 +137,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === "rename") {
-    const result = await renameUnit(ctx, params.unitId, String(form.get("code") ?? ""));
+    const result = await renameUnit(
+      ctx,
+      params.unitId,
+      String(form.get("code") ?? ""),
+    );
     if (!result.ok) return { error: result.reason };
     return redirect(`/units/${params.unitId}`);
   }
@@ -160,12 +182,22 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
-  const { unit, procedures, workOrders, equipment, rentHistory, leaseHistory, today, deleted } =
-    loaderData;
+  const {
+    unit,
+    procedures,
+    workOrders,
+    equipment,
+    rentHistory,
+    leaseHistory,
+    today,
+    deleted,
+  } = loaderData;
 
   // 退居手続きの途中で次の入居者が決まることがある。
   // 入居中でも、退居が動いていれば入居手続きを始められるようにする
-  const movingOut = procedures.some((p) => p.type === "move_out" && p.status !== "done");
+  const movingOut = procedures.some(
+    (p) => p.type === "move_out" && p.status !== "done",
+  );
   const canStartMoveIn = !unit.upcoming && (unit.isVacant || movingOut);
 
   return (
@@ -193,7 +225,9 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
             空室
           </span>
         ) : (
-          <span className="rounded-full bg-slate-200 px-3 py-1 text-base font-medium">入居中</span>
+          <span className="rounded-full bg-slate-200 px-3 py-1 text-base font-medium">
+            入居中
+          </span>
         )}
         {unit.upcoming && (
           <span className="rounded-full bg-emerald-100 px-3 py-1 text-base font-bold text-emerald-800">
@@ -218,11 +252,16 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
             <Row
               label="家賃"
               value={
-                unit.lease.rent != null ? `${unit.lease.rent.toLocaleString("ja-JP")}円` : "—"
+                unit.lease.rent != null
+                  ? `${unit.lease.rent.toLocaleString("ja-JP")}円`
+                  : "—"
               }
             />
             <Row label="契約日" value={formatJa(unit.lease.contractDate)} />
-            <Row label="次回更新" value={formatJa(unit.lease.nextRenewalDate) || "—"} />
+            <Row
+              label="次回更新"
+              value={formatJa(unit.lease.nextRenewalDate) || "—"}
+            />
           </dl>
 
           <EditLeaseForm lease={unit.lease} />
@@ -243,10 +282,10 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
         />
       )}
 
-      {unit.isVacant && !unit.upcoming && <RegisterLeaseForm today={today} />}
-
       <details className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-        <summary className="cursor-pointer text-lg font-bold">番号を直す</summary>
+        <summary className="cursor-pointer text-lg font-bold">
+          番号を直す
+        </summary>
         <Form method="post" className="mt-4 flex gap-2">
           <input type="hidden" name="intent" value="rename" />
           <input
@@ -317,8 +356,12 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
                   to={`/work-orders/${w.id}`}
                   className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50"
                 >
-                  <span className="w-28 shrink-0 text-slate-500">{formatJa(w.occurredOn)}</span>
-                  <span className="min-w-0 flex-1 truncate font-medium">{w.title}</span>
+                  <span className="w-28 shrink-0 text-slate-500">
+                    {formatJa(w.occurredOn)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {w.title}
+                  </span>
                   <span className="shrink-0 text-sm text-slate-500">
                     {WORK_ORDER_STATUS_LABELS[w.status]}
                   </span>
@@ -328,6 +371,8 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
           </ul>
         )}
       </Section>
+
+      {unit.isVacant && !unit.upcoming && <RegisterLeaseForm today={today} />}
     </main>
   );
 }
@@ -342,7 +387,11 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
 function UpcomingLease({
   upcoming,
 }: {
-  upcoming: { tenantName: string | null; contractDate: string; procedureId: string | null };
+  upcoming: {
+    tenantName: string | null;
+    contractDate: string;
+    procedureId: string | null;
+  };
 }) {
   return (
     <section className="mt-6 rounded-xl border-2 border-emerald-500 bg-white p-4">
@@ -378,7 +427,9 @@ function UpcomingLease({
 function MoveInForm({ today }: { today: string }) {
   return (
     <details className="mt-6 rounded-xl border-2 border-sky-500 bg-white p-4">
-      <summary className="cursor-pointer text-lg font-bold text-sky-800">入居が決まった</summary>
+      <summary className="cursor-pointer text-lg font-bold text-sky-800">
+        入居が決まった
+      </summary>
       <p className="mt-2 text-base text-slate-600">
         入居手続きが始まります。募集はこの時点で取り下げます。
       </p>
@@ -387,7 +438,9 @@ function MoveInForm({ today }: { today: string }) {
         <input type="hidden" name="intent" value="start_move_in" />
 
         <label className="block">
-          <span className="text-base font-medium text-slate-700">入居者の氏名</span>
+          <span className="text-base font-medium text-slate-700">
+            入居者の氏名
+          </span>
           <input
             type="text"
             name="tenantName"
@@ -398,7 +451,9 @@ function MoveInForm({ today }: { today: string }) {
 
         <label className="block">
           <span className="text-base font-medium text-slate-700">生年</span>
-          <span className="mt-0.5 block text-sm text-slate-500">西暦・任意</span>
+          <span className="mt-0.5 block text-sm text-slate-500">
+            西暦・任意
+          </span>
           <input
             type="number"
             name="birthYear"
@@ -420,7 +475,9 @@ function MoveInForm({ today }: { today: string }) {
         </label>
 
         <label className="block">
-          <span className="text-base font-medium text-slate-700">家賃（円）</span>
+          <span className="text-base font-medium text-slate-700">
+            家賃（円）
+          </span>
           <span className="mt-0.5 block text-sm text-slate-500">
             任意。あとから契約の編集でも入れられます
           </span>
@@ -446,90 +503,103 @@ function MoveInForm({ today }: { today: string }) {
 /**
  * すでに入居している部屋の契約を登録する。
  *
- * 新規入居は「入居手続き」から始まるが、導入時点で入居中の部屋は
- * 手続きを最初から踏めない。そのための移行専用の入口なので、
- * 通常運用で目立たないよう畳んでおく。
+ * 新規入居は「入居が決まった」から入居手続きを踏む。こちらは導入時点で
+ * すでに住んでいる人を、手続きを飛ばして入れるための移行専用の入口。
+ *
+ * **ページの一番下に、枠も付けずに置いている。** 使うのは移行のときだけで、
+ * 名前が入居手続きと紛らわしい。目立つ位置にあると取り違えを招く。
  */
 function RegisterLeaseForm({ today }: { today: string }) {
   return (
-    <details className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-      <summary className="cursor-pointer text-lg font-bold">
+    <details className="mt-8">
+      <summary className="cursor-pointer text-sm text-slate-500">
         導入時の登録（もう住んでいる人）
       </summary>
-      <p className="mt-2 text-base text-slate-600">
-        Notion から移すときなど、<strong>入居手続きを踏まずに</strong>契約だけを入れる操作です。
-        これから入る人は上の「入居が決まった」から始めてください。
-        登録すると次回の更新手続きが自動で作られます。
-      </p>
+      <div className="mt-2 rounded-xl border border-slate-200 bg-white p-4">
+        <p className="text-base text-slate-600">
+          Notion から移すときなど、<strong>入居手続きを踏まずに</strong>
+          契約だけを入れる操作です。
+          これから入る人は上の「入居が決まった」から始めてください。
+          登録すると次回の更新手続きが自動で作られます。
+        </p>
 
-      <Form method="post" className="mt-4 space-y-4">
-        <input type="hidden" name="intent" value="register_lease" />
+        <Form method="post" className="mt-4 space-y-4">
+          <input type="hidden" name="intent" value="register_lease" />
 
-        <label className="block">
-          <span className="text-base font-medium text-slate-700">入居者の氏名</span>
-          <input
-            type="text"
-            name="tenantName"
-            required
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
-          />
-        </label>
+          <label className="block">
+            <span className="text-base font-medium text-slate-700">
+              入居者の氏名
+            </span>
+            <input
+              type="text"
+              name="tenantName"
+              required
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+            />
+          </label>
 
-        <label className="block">
-          <span className="text-base font-medium text-slate-700">生年</span>
-          <span className="mt-0.5 block text-sm text-slate-500">西暦・任意</span>
-          <input
-            type="number"
-            name="birthYear"
-            inputMode="numeric"
-            placeholder="1985"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
-          />
-        </label>
+          <label className="block">
+            <span className="text-base font-medium text-slate-700">生年</span>
+            <span className="mt-0.5 block text-sm text-slate-500">
+              西暦・任意
+            </span>
+            <input
+              type="number"
+              name="birthYear"
+              inputMode="numeric"
+              placeholder="1985"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
+            />
+          </label>
 
-        <label className="block">
-          <span className="text-base font-medium text-slate-700">契約日</span>
-          <input
-            type="date"
-            name="contractDate"
-            required
-            defaultValue={today}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
-          />
-        </label>
+          <label className="block">
+            <span className="text-base font-medium text-slate-700">契約日</span>
+            <input
+              type="date"
+              name="contractDate"
+              required
+              defaultValue={today}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+            />
+          </label>
 
-        <label className="block">
-          <span className="text-base font-medium text-slate-700">現在の家賃（円）</span>
-          <span className="mt-0.5 block text-sm text-slate-500">
-            任意。分からなければ空のままで構いません
-          </span>
-          <input
-            type="number"
-            name="rent"
-            inputMode="numeric"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
-          />
-        </label>
+          <label className="block">
+            <span className="text-base font-medium text-slate-700">
+              現在の家賃（円）
+            </span>
+            <span className="mt-0.5 block text-sm text-slate-500">
+              任意。分からなければ空のままで構いません
+            </span>
+            <input
+              type="number"
+              name="rent"
+              inputMode="numeric"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
+            />
+          </label>
 
-        <label className="block">
-          <span className="text-base font-medium text-slate-700">次回の更新予定日</span>
-          <span className="mt-0.5 block text-sm text-slate-500">
-            空のままなら契約日の2年後になります
-          </span>
-          <input
-            type="date"
-            name="nextRenewalDate"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
-          />
-        </label>
+          <label className="block">
+            <span className="text-base font-medium text-slate-700">
+              次回の更新予定日
+            </span>
+            <span className="mt-0.5 block text-sm text-slate-500">
+              空のままなら契約日の2年後になります
+            </span>
+            <input
+              type="date"
+              name="nextRenewalDate"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+            />
+          </label>
 
-        <button
-          type="submit"
-          className="w-full rounded-xl bg-sky-600 px-4 py-3 text-lg font-bold text-white hover:bg-sky-700"
-        >
-          契約を登録する
-        </button>
-      </Form>
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-sky-600 px-4 py-3 text-lg font-bold text-white hover:bg-sky-700"
+          >
+            契約を登録する
+          </button>
+        </Form>
+      </div>
     </details>
   );
 }
@@ -572,7 +642,9 @@ function ListingForm({
       <Form method="post" className="mt-4 space-y-4">
         <input type="hidden" name="intent" value="save_listing" />
         <label className="block">
-          <span className="text-base font-medium text-slate-700">募集家賃（円）</span>
+          <span className="text-base font-medium text-slate-700">
+            募集家賃（円）
+          </span>
           <input
             type="number"
             name="listingRent"
@@ -582,7 +654,9 @@ function ListingForm({
           />
         </label>
         <label className="block">
-          <span className="text-base font-medium text-slate-700">募集開始日</span>
+          <span className="text-base font-medium text-slate-700">
+            募集開始日
+          </span>
           <input
             type="date"
             name="listingStartedOn"
@@ -604,7 +678,9 @@ function ListingForm({
 function MoveOutForm({ today }: { today: string }) {
   return (
     <details className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
-      <summary className="cursor-pointer text-lg font-bold">退居の連絡が来た</summary>
+      <summary className="cursor-pointer text-lg font-bold">
+        退居の連絡が来た
+      </summary>
       <Form method="post" className="mt-4 space-y-4">
         <input type="hidden" name="intent" value="start_move_out" />
         <label className="block">
@@ -689,7 +765,10 @@ function EditLeaseForm({
           />
         </EditField>
 
-        <EditField label="次回の更新予定日" hint="直すと更新手続きの予定日も一緒に動きます">
+        <EditField
+          label="次回の更新予定日"
+          hint="直すと更新手続きの予定日も一緒に動きます"
+        >
           <input
             type="date"
             name="nextRenewalDate"
@@ -734,7 +813,9 @@ function EditField({
   return (
     <label className="block">
       <span className="text-base font-medium text-slate-700">{label}</span>
-      {hint && <span className="mt-0.5 block text-sm text-slate-500">{hint}</span>}
+      {hint && (
+        <span className="mt-0.5 block text-sm text-slate-500">{hint}</span>
+      )}
       <div className="mt-1">{children}</div>
     </label>
   );
@@ -762,7 +843,9 @@ function LeaseHistory({ rows }: { rows: UnitLeaseRow[] }) {
                 入居予定
               </span>
             ) : (
-              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-sm">終了</span>
+              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-sm">
+                終了
+              </span>
             )}
             <span className="text-slate-500 tabular-nums">
               {formatSlash(row.contractDate)} 〜{" "}
@@ -801,7 +884,9 @@ function DeleteLeaseForm({ lease }: { lease: UnitLeaseRow }) {
 
   return (
     <details className="mt-2">
-      <summary className="cursor-pointer text-sm text-slate-500">この契約を削除する</summary>
+      <summary className="cursor-pointer text-sm text-slate-500">
+        この契約を削除する
+      </summary>
       <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 p-3">
         <p className="text-sm text-rose-900">
           間違えて登録した契約を消すための操作です。退居の記録には使いません。
@@ -838,7 +923,10 @@ function RentHistory({ rows }: { rows: RentHistoryRow[] }) {
         const diff = previous ? row.amount - previous.amount : null;
 
         return (
-          <li key={row.id} className="flex flex-wrap items-baseline gap-x-3 px-4 py-3">
+          <li
+            key={row.id}
+            className="flex flex-wrap items-baseline gap-x-3 px-4 py-3"
+          >
             <span className="w-24 shrink-0 text-slate-500 tabular-nums">
               {formatSlash(row.effectiveFrom)}
             </span>
@@ -849,7 +937,9 @@ function RentHistory({ rows }: { rows: RentHistoryRow[] }) {
             {diff !== null && diff !== 0 && (
               <span
                 className={`rounded-full px-2 py-0.5 text-sm font-bold tabular-nums ${
-                  diff > 0 ? "bg-rose-100 text-rose-800" : "bg-sky-100 text-sky-800"
+                  diff > 0
+                    ? "bg-rose-100 text-rose-800"
+                    : "bg-sky-100 text-sky-800"
                 }`}
               >
                 {diff > 0 ? "増額" : "減額"} {diff > 0 ? "+" : "−"}
@@ -862,14 +952,18 @@ function RentHistory({ rows }: { rows: RentHistoryRow[] }) {
               </span>
             )}
 
-            <span className="text-sm text-slate-500">{RENT_REASON_LABELS[row.reason]}</span>
+            <span className="text-sm text-slate-500">
+              {RENT_REASON_LABELS[row.reason]}
+            </span>
             {!row.confirmed && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-sm font-medium text-amber-800">
                 予定
               </span>
             )}
             {row.tenantName && (
-              <span className="ml-auto text-sm text-slate-500">{row.tenantName}</span>
+              <span className="ml-auto text-sm text-slate-500">
+                {row.tenantName}
+              </span>
             )}
           </li>
         );
@@ -887,7 +981,12 @@ function EquipmentSection({
   records,
 }: {
   unitId: string;
-  records: { id: string; category: string; performedOn: string; modelNumber: string | null }[];
+  records: {
+    id: string;
+    category: string;
+    performedOn: string;
+    modelNumber: string | null;
+  }[];
 }) {
   return (
     <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
@@ -902,15 +1001,21 @@ function EquipmentSection({
               <span className="w-28 shrink-0 font-medium">{c.label}</span>
               {latest ? (
                 <>
-                  <span className="tabular-nums">{formatJa(latest.performedOn)}</span>
+                  <span className="tabular-nums">
+                    {formatJa(latest.performedOn)}
+                  </span>
                   {latest.modelNumber && (
-                    <span className="min-w-0 truncate text-slate-500">{latest.modelNumber}</span>
+                    <span className="min-w-0 truncate text-slate-500">
+                      {latest.modelNumber}
+                    </span>
                   )}
                 </>
               ) : (
                 <span className="text-slate-400">記録なし</span>
               )}
-              <span className="ml-auto shrink-0 text-sm text-sky-700">＋ 記録</span>
+              <span className="ml-auto shrink-0 text-sm text-sky-700">
+                ＋ 記録
+              </span>
             </Link>
           </li>
         );
@@ -919,7 +1024,13 @@ function EquipmentSection({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="mt-8">
       <h2 className="text-xl font-bold text-sky-800">{title}</h2>
