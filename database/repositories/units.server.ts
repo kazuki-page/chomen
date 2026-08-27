@@ -214,7 +214,10 @@ export type UnitDetail = {
   upcoming: {
     leaseId: string;
     tenantName: string | null;
+    tenantBirthYear: number | null;
     contractDate: IsoDate;
+    /** 契約時に決めた家賃。まだ住んでいないので「現在の家賃」ではない */
+    rent: number | null;
     procedureId: string | null;
   } | null;
 };
@@ -260,11 +263,27 @@ export async function getUnitDetail(
 
   if (!row) return null;
 
+  /*
+   * 契約時の家賃。上の currentRent とは条件が違う。
+   * 契約日が先の日付だと `effective_from <= asOf` を満たさず消えてしまうため、
+   * 日付で絞らずに最新の確定済み改定を取る。
+   */
+  const contractRent = sql<number | null>`(
+    select r.amount
+    from rent_revisions r
+    where r.lease_id = ${leases.id}
+      and r.confirmed = 1
+    order by r.effective_from desc
+    limit 1
+  )`;
+
   const [upcoming] = await ctx.db
     .select({
       leaseId: leases.id,
       tenantName: tenants.name,
+      tenantBirthYear: tenants.birthYear,
       contractDate: leases.contractDate,
+      rent: contractRent,
       procedureId: procedures.id,
     })
     .from(leases)

@@ -23,7 +23,10 @@ export type LeaseEditInput = {
  * ここで家賃を書き換えるのは最新の改定レコードの訂正であって、新しい改定は作らない。
  *
  * 次回更新予定日を直した場合は、未完了の更新手続きの予定日も合わせて動かす。
+ * 契約日を直した場合は、未完了の入居手続きの予定日を合わせて動かす。
  * 両者がずれると、ホーム画面に出るタイミングと部屋詳細の表示が食い違ってしまう。
+ *
+ * **入居手続き中（pending）の契約もそのまま扱える。** 契約の状態は見ていない。
  */
 export async function updateLeaseDetails(
   ctx: OrgContext,
@@ -36,7 +39,12 @@ export async function updateLeaseDetails(
       contractDate: leases.contractDate,
     })
     .from(leases)
-    .where(and(eq(leases.organizationId, ctx.organizationId), eq(leases.id, input.leaseId)));
+    .where(
+      and(
+        eq(leases.organizationId, ctx.organizationId),
+        eq(leases.id, input.leaseId),
+      ),
+    );
 
   if (!lease) throw new Response("契約が見つかりません", { status: 404 });
 
@@ -44,9 +52,16 @@ export async function updateLeaseDetails(
   const writes: BatchItem<"sqlite">[] = [
     ctx.db
       .update(tenants)
-      .set({ name: input.tenantName, birthYear: input.birthYear, updatedAt: now })
+      .set({
+        name: input.tenantName,
+        birthYear: input.birthYear,
+        updatedAt: now,
+      })
       .where(
-        and(eq(tenants.organizationId, ctx.organizationId), eq(tenants.id, lease.tenantId)),
+        and(
+          eq(tenants.organizationId, ctx.organizationId),
+          eq(tenants.id, lease.tenantId),
+        ),
       ),
     ctx.db
       .update(leases)
@@ -55,7 +70,12 @@ export async function updateLeaseDetails(
         nextRenewalDate: input.nextRenewalDate,
         updatedAt: now,
       })
-      .where(and(eq(leases.organizationId, ctx.organizationId), eq(leases.id, lease.id))),
+      .where(
+        and(
+          eq(leases.organizationId, ctx.organizationId),
+          eq(leases.id, lease.id),
+        ),
+      ),
   ];
 
   // 契約日を直したら、契約時の家賃改定（initial）の適用開始日も同じ日に動かす
@@ -69,6 +89,22 @@ export async function updateLeaseDetails(
             eq(rentRevisions.organizationId, ctx.organizationId),
             eq(rentRevisions.leaseId, lease.id),
             eq(rentRevisions.reason, "initial"),
+          ),
+        ),
+    );
+    // 未完了の入居手続きの予定日も揃える。
+    // 入居手続きは契約日を予定日として作られるため、直さないと
+    // ホーム画面に出る日付だけが元のままになる
+    writes.push(
+      ctx.db
+        .update(procedures)
+        .set({ scheduledOn: input.contractDate, updatedAt: now })
+        .where(
+          and(
+            eq(procedures.organizationId, ctx.organizationId),
+            eq(procedures.leaseId, lease.id),
+            eq(procedures.type, "move_in"),
+            ne(procedures.status, "done"),
           ),
         ),
     );

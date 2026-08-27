@@ -381,8 +381,11 @@ function UpcomingLease({
   upcoming,
 }: {
   upcoming: {
+    leaseId: string;
     tenantName: string | null;
+    tenantBirthYear: number | null;
     contractDate: string;
+    rent: number | null;
     procedureId: string | null;
   };
 }) {
@@ -391,6 +394,14 @@ function UpcomingLease({
       <h2 className="text-xl font-bold text-emerald-800">入居予定</h2>
       <dl className="mt-3 space-y-2 text-base">
         <Row label="入居者" value={upcoming.tenantName ?? "—"} />
+        <Row
+          label="家賃"
+          value={
+            upcoming.rent != null
+              ? `${upcoming.rent.toLocaleString("ja-JP")}円`
+              : "—"
+          }
+        />
         <Row label="契約日" value={formatJa(upcoming.contractDate)} />
       </dl>
       {upcoming.procedureId && (
@@ -404,6 +415,24 @@ function UpcomingLease({
       <p className="mt-3 text-sm text-slate-500">
         手続きを終えると、この部屋の入居者が入れ替わります。
       </p>
+
+      {/*
+        入居中の契約と同じ編集欄を出す。手続きの最中に氏名の誤りが見つかったり、
+        始めた時点では分からなかった家賃が判明したりするため。
+        次回更新日だけは出さない。手続きの完了時に契約日の2年後で入るので、
+        ここで入れても上書きされる
+      */}
+      <EditLeaseForm
+        lease={{
+          id: upcoming.leaseId,
+          tenantName: upcoming.tenantName,
+          tenantBirthYear: upcoming.tenantBirthYear,
+          contractDate: upcoming.contractDate,
+          nextRenewalDate: null,
+          rent: upcoming.rent,
+        }}
+        pending
+      />
     </section>
   );
 }
@@ -644,6 +673,7 @@ function MoveOutForm({ today }: { today: string }) {
  */
 function EditLeaseForm({
   lease,
+  pending = false,
 }: {
   lease: {
     id: string;
@@ -653,6 +683,12 @@ function EditLeaseForm({
     nextRenewalDate: string | null;
     rent: number | null;
   };
+  /**
+   * 入居手続き中の契約か。まだ住んでいないので2点変わる。
+   *   - 次回の更新予定日を出さない（完了時に契約日の2年後で入るため）
+   *   - 家賃を「現在の」ではなく「契約時の」と呼ぶ
+   */
+  pending?: boolean;
 }) {
   return (
     <details className="mt-4 border-t border-slate-200 pt-3">
@@ -697,20 +733,22 @@ function EditLeaseForm({
           />
         </EditField>
 
-        <EditField
-          label="次回の更新予定日"
-          hint="直すと更新手続きの予定日も一緒に動きます"
-        >
-          <input
-            type="date"
-            name="nextRenewalDate"
-            defaultValue={lease.nextRenewalDate ?? ""}
-            className="w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
-          />
-        </EditField>
+        {!pending && (
+          <EditField
+            label="次回の更新予定日"
+            hint="直すと更新手続きの予定日も一緒に動きます"
+          >
+            <input
+              type="date"
+              name="nextRenewalDate"
+              defaultValue={lease.nextRenewalDate ?? ""}
+              className="w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+            />
+          </EditField>
+        )}
 
         <EditField
-          label="現在の家賃（円）"
+          label={pending ? "契約時の家賃（円）" : "現在の家賃（円）"}
           hint="履歴は増えません。最新の金額を書き換えます。空のままなら今の金額を残します"
         >
           <input

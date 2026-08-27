@@ -244,6 +244,7 @@ Better Auth のコアスキーマをそのまま使用する（`database/schema/
 |---|---|
 | 全チェック項目が完了 | `procedures.status` を `done` に |
 | **入居手続きの開始** | Lease を `pending` で作成。Unit の `listing_*` をクリア（募集の取り下げ） |
+| **契約日の訂正** | 未完了の入居手続きの予定日と、`initial` の家賃改定の適用開始日も揃える |
 | **入居手続きの完了** | Lease を `active` に。**同じ部屋に残る `active` の Lease を `ended` に**。**2年後の更新手続きを自動生成** |
 | **更新手続きの完了** | 家賃改定を `confirmed = 1` に。`leases.next_renewal_date` を更新。**次回の更新手続きを自動生成** |
 | **退居手続きの完了** | Lease を `ended` に。`ended_at` を記録。Unit を空室化し、募集開始日・募集家賃の入力を促す |
