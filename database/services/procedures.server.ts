@@ -1,10 +1,16 @@
 import type { BatchItem } from "drizzle-orm/batch";
-import { and, desc, eq, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 
 import { addYears, todayInTokyo, type IsoDate } from "~/lib/date";
 import type { OrgContext } from "../context.server";
 import { templateFor, type ProcedureType } from "../procedure-templates";
-import { leases, procedureItems, procedures, rentRevisions, units } from "../schema";
+import {
+  leases,
+  procedureItems,
+  procedures,
+  rentRevisions,
+  units,
+} from "../schema";
 
 type Writes = BatchItem<"sqlite">[];
 
@@ -73,7 +79,10 @@ export async function setItemChecked(
       .update(procedures)
       .set({ status: "in_progress", updatedAt: now })
       .where(
-        and(eq(procedures.organizationId, ctx.organizationId), eq(procedures.id, proc.id)),
+        and(
+          eq(procedures.organizationId, ctx.organizationId),
+          eq(procedures.id, proc.id),
+        ),
       );
   }
 }
@@ -85,16 +94,23 @@ export async function setItemChecked(
  * |-----------|-----------------------------------------------------------------|
  * | 入居完了   | 契約を有効化、部屋の募集情報をクリア、2年後の更新手続きを自動生成      |
  * | 更新完了   | 家賃改定を確定、次回更新日を更新、次回の更新手続きを自動生成           |
- * | 退居完了   | 契約を終了。部屋は「有効な契約が無い」ことで自動的に空室になる          |
+ * | 退居完了   | 契約を終了。部屋は「有効な契約が無い」ことで自動的に空室になる。          |
+ * |           | 来ないと決まった更新手続きを取り消す                                  |
  */
-async function completeProcedure(ctx: OrgContext, proc: LoadedProcedure): Promise<void> {
+async function completeProcedure(
+  ctx: OrgContext,
+  proc: LoadedProcedure,
+): Promise<void> {
   const now = new Date();
   const writes: Writes = [
     ctx.db
       .update(procedures)
       .set({ status: "done", completedAt: now, updatedAt: now })
       .where(
-        and(eq(procedures.organizationId, ctx.organizationId), eq(procedures.id, proc.id)),
+        and(
+          eq(procedures.organizationId, ctx.organizationId),
+          eq(procedures.id, proc.id),
+        ),
       ),
   ];
 
@@ -107,7 +123,10 @@ async function completeProcedure(ctx: OrgContext, proc: LoadedProcedure): Promis
           .update(leases)
           .set({ status: "active", nextRenewalDate: renewalOn, updatedAt: now })
           .where(
-            and(eq(leases.organizationId, ctx.organizationId), eq(leases.id, proc.leaseId)),
+            and(
+              eq(leases.organizationId, ctx.organizationId),
+              eq(leases.id, proc.leaseId),
+            ),
           ),
       );
       // 入居が決まったので募集を取り下げる（Notion では空室レコードを手で「過去」にしていた作業）
@@ -115,15 +134,23 @@ async function completeProcedure(ctx: OrgContext, proc: LoadedProcedure): Promis
         ctx.db
           .update(units)
           .set({ listingRent: null, listingStartedOn: null, updatedAt: now })
-          .where(and(eq(units.organizationId, ctx.organizationId), eq(units.id, proc.unitId))),
+          .where(
+            and(
+              eq(units.organizationId, ctx.organizationId),
+              eq(units.id, proc.unitId),
+            ),
+          ),
       );
-      writes.push(...buildProcedureInserts(ctx, proc.leaseId, "renewal", renewalOn));
+      writes.push(
+        ...buildProcedureInserts(ctx, proc.leaseId, "renewal", renewalOn),
+      );
       writes.push(...(await endPreviousLease(ctx, proc, now)));
       break;
     }
 
     case "renewal": {
-      const base = proc.scheduledOn ?? proc.nextRenewalDate ?? proc.contractDate;
+      const base =
+        proc.scheduledOn ?? proc.nextRenewalDate ?? proc.contractDate;
       const nextOn = addYears(base, 2);
 
       // 予定として作られていた家賃改定を確定させる
@@ -143,10 +170,15 @@ async function completeProcedure(ctx: OrgContext, proc: LoadedProcedure): Promis
           .update(leases)
           .set({ nextRenewalDate: nextOn, updatedAt: now })
           .where(
-            and(eq(leases.organizationId, ctx.organizationId), eq(leases.id, proc.leaseId)),
+            and(
+              eq(leases.organizationId, ctx.organizationId),
+              eq(leases.id, proc.leaseId),
+            ),
           ),
       );
-      writes.push(...buildProcedureInserts(ctx, proc.leaseId, "renewal", nextOn));
+      writes.push(
+        ...buildProcedureInserts(ctx, proc.leaseId, "renewal", nextOn),
+      );
       break;
     }
 
@@ -161,9 +193,13 @@ async function completeProcedure(ctx: OrgContext, proc: LoadedProcedure): Promis
             updatedAt: now,
           })
           .where(
-            and(eq(leases.organizationId, ctx.organizationId), eq(leases.id, proc.leaseId)),
+            and(
+              eq(leases.organizationId, ctx.organizationId),
+              eq(leases.id, proc.leaseId),
+            ),
           ),
       );
+      writes.push(...(await cancelUnfinishedRenewals(ctx, proc.leaseId)));
       // 募集家賃・募集開始日はここでは設定しない。
       // いくらで募集するかは人が決めることなので、画面側で入力を促す。
       break;
@@ -216,17 +252,92 @@ async function endPreviousLease(
     if (!latest.has(row.id)) latest.set(row.id, row.scheduledOn);
   }
 
-  return [...latest].map(([leaseId, scheduledOn]) =>
+  const writes: Writes = [];
+  for (const [leaseId, scheduledOn] of latest) {
+    writes.push(
+      ctx.db
+        .update(leases)
+        .set({
+          status: "ended",
+          endedOn: scheduledOn ?? proc.contractDate,
+          nextRenewalDate: null,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(leases.organizationId, ctx.organizationId),
+            eq(leases.id, leaseId),
+          ),
+        ),
+    );
+    writes.push(...(await cancelUnfinishedRenewals(ctx, leaseId)));
+  }
+  return writes;
+}
+
+/**
+ * 契約が終わったときに、**行われないと決まった更新手続きを取り消す。**
+ *
+ * 更新手続きは入居や前回更新の完了時に2年先ぶんが自動で作られる。
+ * 退去した人の更新は永遠に来ないが、放っておくと
+ * `procedures.status != 'done'` を見ているホーム画面の「やること」に残り続け、
+ * **退去した入居者の名前が並ぶ。**放置に気づかせるための画面が、
+ * 対応できない項目で埋まってしまう。
+ *
+ * 完了済みの更新手続きには触らない。実際に行われた更新の履歴なので残す。
+ *
+ * 「更新通知内容を決定」で作られた**予定の**家賃改定も一緒に消す。
+ * 手続きを消して改定だけ残すと、来ない更新の金額が家賃の履歴に居座る。
+ * 確定済みの改定は実際に適用された金額なので残す。
+ */
+async function cancelUnfinishedRenewals(
+  ctx: OrgContext,
+  leaseId: string,
+): Promise<Writes> {
+  const rows = await ctx.db
+    .select({ id: procedures.id })
+    .from(procedures)
+    .where(
+      and(
+        eq(procedures.organizationId, ctx.organizationId),
+        eq(procedures.leaseId, leaseId),
+        eq(procedures.type, "renewal"),
+        ne(procedures.status, "done"),
+      ),
+    );
+
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((r) => r.id);
+
+  // 子から親へ。D1 の外部キーの挙動に依存させない（契約の削除と同じ方針）
+  return [
     ctx.db
-      .update(leases)
-      .set({
-        status: "ended",
-        endedOn: scheduledOn ?? proc.contractDate,
-        nextRenewalDate: null,
-        updatedAt: now,
-      })
-      .where(and(eq(leases.organizationId, ctx.organizationId), eq(leases.id, leaseId))),
-  );
+      .delete(procedureItems)
+      .where(
+        and(
+          eq(procedureItems.organizationId, ctx.organizationId),
+          inArray(procedureItems.procedureId, ids),
+        ),
+      ),
+    ctx.db
+      .delete(rentRevisions)
+      .where(
+        and(
+          eq(rentRevisions.organizationId, ctx.organizationId),
+          inArray(rentRevisions.procedureId, ids),
+          eq(rentRevisions.confirmed, false),
+        ),
+      ),
+    ctx.db
+      .delete(procedures)
+      .where(
+        and(
+          eq(procedures.organizationId, ctx.organizationId),
+          inArray(procedures.id, ids),
+        ),
+      ),
+  ];
 }
 
 /**
@@ -242,7 +353,13 @@ export async function startProcedure(
   const procedureId = crypto.randomUUID();
   await runBatch(
     ctx,
-    buildProcedureInserts(ctx, input.leaseId, input.type, input.scheduledOn, procedureId),
+    buildProcedureInserts(
+      ctx,
+      input.leaseId,
+      input.type,
+      input.scheduledOn,
+      procedureId,
+    ),
   );
   return procedureId;
 }
@@ -286,7 +403,12 @@ function buildProcedureInserts(
 
 async function upsertPendingRentRevision(
   ctx: OrgContext,
-  input: { procedureId: string; leaseId: string; effectiveFrom: IsoDate; amount: number },
+  input: {
+    procedureId: string;
+    leaseId: string;
+    effectiveFrom: IsoDate;
+    amount: number;
+  },
 ): Promise<void> {
   const [existing] = await ctx.db
     .select({ id: rentRevisions.id })
@@ -301,7 +423,11 @@ async function upsertPendingRentRevision(
   if (existing) {
     await ctx.db
       .update(rentRevisions)
-      .set({ amount: input.amount, effectiveFrom: input.effectiveFrom, updatedAt: new Date() })
+      .set({
+        amount: input.amount,
+        effectiveFrom: input.effectiveFrom,
+        updatedAt: new Date(),
+      })
       .where(
         and(
           eq(rentRevisions.organizationId, ctx.organizationId),
@@ -351,13 +477,19 @@ async function loadProcedure(
     .from(procedures)
     .innerJoin(leases, eq(leases.id, procedures.leaseId))
     .where(
-      and(eq(procedures.organizationId, ctx.organizationId), eq(procedures.id, procedureId)),
+      and(
+        eq(procedures.organizationId, ctx.organizationId),
+        eq(procedures.id, procedureId),
+      ),
     );
 
   return row ?? null;
 }
 
-async function countUnchecked(ctx: OrgContext, procedureId: string): Promise<number> {
+async function countUnchecked(
+  ctx: OrgContext,
+  procedureId: string,
+): Promise<number> {
   const rows = await ctx.db
     .select({ id: procedureItems.id })
     .from(procedureItems)
