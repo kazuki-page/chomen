@@ -37,7 +37,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
           r.contractDate,
           r.rent,
           r.nextRenewalDate,
-          r.status === "active" ? "契約中" : "終了",
+          { pending: "入居手続き中", active: "契約中", ended: "終了" }[r.status],
           r.endedOn,
         ]),
       ]);

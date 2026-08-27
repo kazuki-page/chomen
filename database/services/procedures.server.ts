@@ -1,5 +1,5 @@
 import type { BatchItem } from "drizzle-orm/batch";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, ne } from "drizzle-orm";
 
 import { addYears, todayInTokyo, type IsoDate } from "~/lib/date";
 import type { OrgContext } from "../context.server";
@@ -118,6 +118,7 @@ async function completeProcedure(ctx: OrgContext, proc: LoadedProcedure): Promis
           .where(and(eq(units.organizationId, ctx.organizationId), eq(units.id, proc.unitId))),
       );
       writes.push(...buildProcedureInserts(ctx, proc.leaseId, "renewal", renewalOn));
+      writes.push(...(await endPreviousLease(ctx, proc, now)));
       break;
     }
 
@@ -170,6 +171,62 @@ async function completeProcedure(ctx: OrgContext, proc: LoadedProcedure): Promis
   }
 
   await runBatch(ctx, writes);
+}
+
+/**
+ * 入居手続きの完了時に、その部屋に残っている前の契約を終了させる。
+ *
+ * 退居手続きが終わる前に次の入居者が決まることがある。そのまま完了させると
+ * **1つの部屋に active な契約が2件**でき、部屋一覧が同じ部屋を二重に並べる
+ * （一覧は active を1件だけ引く前提の JOIN になっている）。
+ *
+ * **退居手続きは未完のまま残す。** ホーム画面の「やること」は手続きの状態だけを
+ * 見ていて契約を参照しないので、契約を終えてもやり残しは消えない。
+ * 部屋の見た目だけが新しい入居者に入れ替わり、退居の残作業は残り続ける。
+ *
+ * 退去日は退居手続きの予定日を借りておく。手続きが完了した時点で
+ * 正式な退去日に上書きされるため、ここでの値は暫定でよい。
+ */
+async function endPreviousLease(
+  ctx: OrgContext,
+  proc: LoadedProcedure,
+  now: Date,
+): Promise<Writes> {
+  const rows = await ctx.db
+    .select({ id: leases.id, scheduledOn: procedures.scheduledOn })
+    .from(leases)
+    .leftJoin(
+      procedures,
+      and(eq(procedures.leaseId, leases.id), eq(procedures.type, "move_out")),
+    )
+    .where(
+      and(
+        eq(leases.organizationId, ctx.organizationId),
+        eq(leases.unitId, proc.unitId),
+        eq(leases.status, "active"),
+        ne(leases.id, proc.leaseId),
+      ),
+    )
+    .orderBy(desc(procedures.scheduledOn));
+
+  // 退居手続きが複数ぶら下がっていると JOIN が同じ契約を何度も返す。
+  // 予定日の新しいものを採用する
+  const latest = new Map<string, string | null>();
+  for (const row of rows) {
+    if (!latest.has(row.id)) latest.set(row.id, row.scheduledOn);
+  }
+
+  return [...latest].map(([leaseId, scheduledOn]) =>
+    ctx.db
+      .update(leases)
+      .set({
+        status: "ended",
+        endedOn: scheduledOn ?? proc.contractDate,
+        nextRenewalDate: null,
+        updatedAt: now,
+      })
+      .where(and(eq(leases.organizationId, ctx.organizationId), eq(leases.id, leaseId))),
+  );
 }
 
 /**

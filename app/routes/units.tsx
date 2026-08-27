@@ -176,20 +176,26 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function UnitCard({ unit, today }: { unit: UnitListItem; today: string }) {
   const age = approximateAge(unit.tenantBirthYear, today);
+  // 空室でも次が決まっていれば手を打つことは無い。黄色の強調は外す
+  const needsTenant = unit.isVacant && unit.upcomingTenantName === null;
   return (
     <li>
       <Link
         to={`/units/${unit.id}`}
         className={`relative block overflow-hidden p-4 pl-5 ${CARD_SURFACE} ${
-          unit.isVacant ? "bg-amber-50" : ""
+          needsTenant ? "bg-amber-50" : ""
         }`}
       >
-        {/* 色帯は空室にだけ付ける。全室に付けると目印にならない */}
-        {unit.isVacant && <span className="absolute inset-y-0 left-0 w-1.5 bg-amber-400" />}
+        {/* 色帯は募集が要る空室にだけ付ける。全室に付けると目印にならない */}
+        {needsTenant && <span className="absolute inset-y-0 left-0 w-1.5 bg-amber-400" />}
       <div className="flex items-center justify-between gap-3">
         <span className="text-2xl font-bold tabular-nums">{unit.code}</span>
         {unit.isVacant ? (
-          <span className="rounded-full bg-amber-200 px-3 py-1 text-sm font-bold text-amber-900">
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-bold ${
+              needsTenant ? "bg-amber-200 text-amber-900" : "bg-slate-200 text-slate-700"
+            }`}
+          >
             空室
           </span>
         ) : (
@@ -211,6 +217,10 @@ function UnitCard({ unit, today }: { unit: UnitListItem; today: string }) {
           <Row label="募集開始" value={formatJa(unit.listingStartedOn) || "—"} />
         ) : (
           <Row label="次回更新" value={formatJa(unit.nextRenewalDate) || "—"} />
+        )}
+        {/* 退居待ちの部屋では、今の入居者の下に次の入居者が並ぶ */}
+        {unit.upcomingTenantName && (
+          <Row label="入居予定" value={unit.upcomingTenantName} />
         )}
         </dl>
       </Link>

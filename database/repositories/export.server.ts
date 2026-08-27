@@ -21,7 +21,7 @@ export type LeaseExportRow = {
   contractDate: IsoDate;
   rent: number | null;
   nextRenewalDate: IsoDate | null;
-  status: "active" | "ended";
+  status: "pending" | "active" | "ended";
   endedOn: IsoDate | null;
 };
 

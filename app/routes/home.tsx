@@ -41,7 +41,10 @@ export async function loader({ request }: Route.LoaderArgs) {
   return {
     procedures,
     workOrders,
-    vacant: units.filter((u) => u.isVacant),
+    // 次の入居者が決まった部屋は外す。ここは募集の作業リストなので、
+    // 残すと「募集家賃を入力」が対応の要らない部屋に出てしまう。
+    // 入居手続き自体は「やること」に並ぶので、部屋が見えなくなるわけではない
+    vacant: units.filter((u) => u.isVacant && u.upcomingTenantName === null),
     thisMonth,
     laterRenewals,
   };

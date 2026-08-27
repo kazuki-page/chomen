@@ -2,7 +2,7 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import type { IsoDate } from "~/lib/date";
 import type { OrgContext } from "../context.server";
-import { leases, rentRevisions, tenants, units } from "../schema";
+import { leases, procedures, rentRevisions, tenants, units } from "../schema";
 
 export type UnitListItem = {
   id: string;
@@ -17,6 +17,8 @@ export type UnitListItem = {
   rent: number | null;
   nextRenewalDate: IsoDate | null;
   listingStartedOn: IsoDate | null;
+  /** 入居手続きが進行中の入居者名。決まっているが、まだ住んでいない */
+  upcomingTenantName: string | null;
 };
 
 /**
@@ -24,6 +26,7 @@ export type UnitListItem = {
  *
  * 「空室」も「現在の家賃」もレコードとして保存していないため、ここで導出する。
  *   - 空室     … status='active' の契約が存在しない
+ *                （入居手続き中の pending は、まだ住んでいないので数えない）
  *   - 現在家賃 … 適用開始日が asOf 以前で確定済みの改定のうち最新のもの
  *
  * @param asOf 家賃の基準日。呼び出し側（loader）が日本時間の今日を渡す。
@@ -62,6 +65,8 @@ export async function listUnits(
     .where(eq(units.organizationId, ctx.organizationId))
     .orderBy(asc(units.displayOrder), asc(units.code));
 
+  const upcoming = await pendingTenantsByUnit(ctx);
+
   return rows.map((row) => {
     const isVacant = row.leaseId === null;
     return {
@@ -74,8 +79,27 @@ export async function listUnits(
       rent: isVacant ? row.listingRent : row.currentRent,
       nextRenewalDate: isVacant ? null : row.nextRenewalDate,
       listingStartedOn: isVacant ? row.listingStartedOn : null,
+      upcomingTenantName: upcoming.get(row.id) ?? null,
     };
   });
+}
+
+/**
+ * 入居手続きが進行中の契約を部屋ごとに引く。
+ *
+ * **上の JOIN には混ぜられない。** 退居待ちの部屋には active と pending が
+ * 同居するため、条件を広げると1つの部屋が2行になって一覧に二重に並ぶ。
+ */
+async function pendingTenantsByUnit(ctx: OrgContext): Promise<Map<string, string>> {
+  const rows = await ctx.db
+    .select({ unitId: leases.unitId, tenantName: tenants.name })
+    .from(leases)
+    .innerJoin(tenants, eq(tenants.id, leases.tenantId))
+    .where(
+      and(eq(leases.organizationId, ctx.organizationId), eq(leases.status, "pending")),
+    );
+
+  return new Map(rows.map((r) => [r.unitId, r.tenantName]));
 }
 
 export type UnitOption = {
@@ -107,6 +131,13 @@ export type UnitDetail = {
     contractDate: IsoDate;
     nextRenewalDate: IsoDate | null;
     rent: number | null;
+  } | null;
+  /** 進行中の入居手続き。空室・入居中のどちらでも並行して存在しうる */
+  upcoming: {
+    leaseId: string;
+    tenantName: string | null;
+    contractDate: IsoDate;
+    procedureId: string | null;
   } | null;
 };
 
@@ -146,6 +177,28 @@ export async function getUnitDetail(
 
   if (!row) return null;
 
+  const [upcoming] = await ctx.db
+    .select({
+      leaseId: leases.id,
+      tenantName: tenants.name,
+      contractDate: leases.contractDate,
+      procedureId: procedures.id,
+    })
+    .from(leases)
+    .leftJoin(tenants, eq(tenants.id, leases.tenantId))
+    .leftJoin(
+      procedures,
+      and(eq(procedures.leaseId, leases.id), eq(procedures.type, "move_in")),
+    )
+    .where(
+      and(
+        eq(leases.organizationId, ctx.organizationId),
+        eq(leases.unitId, unitId),
+        eq(leases.status, "pending"),
+      ),
+    )
+    .limit(1);
+
   return {
     id: row.id,
     type: row.type,
@@ -153,6 +206,7 @@ export async function getUnitDetail(
     isVacant: row.leaseId === null,
     listingRent: row.listingRent,
     listingStartedOn: row.listingStartedOn,
+    upcoming: upcoming ?? null,
     // leaseId が無い＝空室。contractDate は LEFT JOIN の都合で null 許容になっているだけ
     lease:
       row.leaseId === null || row.contractDate === null
@@ -174,7 +228,7 @@ export type UnitLeaseRow = {
   tenantBirthYear: number | null;
   contractDate: IsoDate;
   endedOn: IsoDate | null;
-  status: "active" | "ended";
+  status: "pending" | "active" | "ended";
   rent: number | null;
   /** ぶら下がっている手続きの件数。削除時に何が消えるかを見せるために使う */
   procedureCount: number;

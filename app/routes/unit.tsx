@@ -13,7 +13,7 @@ import {
 import { listWorkOrders } from "@db/repositories/work-orders.server";
 import { deleteLease } from "@db/services/lease-delete.server";
 import { updateLeaseDetails } from "@db/services/lease-edit.server";
-import { registerExistingLease } from "@db/services/leases.server";
+import { registerExistingLease, startMoveIn } from "@db/services/leases.server";
 import { startProcedure } from "@db/services/procedures.server";
 import { renameUnit } from "@db/services/units.server";
 import {
@@ -64,6 +64,28 @@ export async function action({ request, params }: Route.ActionArgs) {
       type: "move_out",
       scheduledOn: String(form.get("scheduledOn") || todayInTokyo()),
     });
+    return redirect(`/procedures/${procedureId}`);
+  }
+
+  if (intent === "start_move_in") {
+    const contractDate = String(form.get("contractDate") ?? "");
+    const name = String(form.get("tenantName") ?? "").trim();
+
+    if (!name || !contractDate) {
+      return { error: "氏名と契約日を入力してください" };
+    }
+
+    const birthYear = Number(form.get("birthYear"));
+    const rent = Number(form.get("rent"));
+    const { procedureId } = await startMoveIn(ctx, {
+      unitId: params.unitId,
+      tenantName: name,
+      birthYear: Number.isFinite(birthYear) && birthYear > 0 ? birthYear : null,
+      contractDate,
+      rent: Number.isFinite(rent) && rent > 0 ? rent : null,
+    });
+
+    // 作って終わりではなく、そのままチェックリストへ送る
     return redirect(`/procedures/${procedureId}`);
   }
 
@@ -141,6 +163,11 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
   const { unit, procedures, workOrders, equipment, rentHistory, leaseHistory, today, deleted } =
     loaderData;
 
+  // 退居手続きの途中で次の入居者が決まることがある。
+  // 入居中でも、退居が動いていれば入居手続きを始められるようにする
+  const movingOut = procedures.some((p) => p.type === "move_out" && p.status !== "done");
+  const canStartMoveIn = !unit.upcoming && (unit.isVacant || movingOut);
+
   return (
     <main className="mx-auto max-w-2xl px-4 py-6 pb-16">
       <Link to="/units" className="text-slate-500 hover:underline">
@@ -167,6 +194,11 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
           </span>
         ) : (
           <span className="rounded-full bg-slate-200 px-3 py-1 text-base font-medium">入居中</span>
+        )}
+        {unit.upcoming && (
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-base font-bold text-emerald-800">
+            入居予定
+          </span>
         )}
       </header>
 
@@ -195,14 +227,23 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
 
           <EditLeaseForm lease={unit.lease} />
         </section>
-      ) : (
-        <>
-          <RegisterLeaseForm today={today} />
-          <ListingForm rent={unit.listingRent} startedOn={unit.listingStartedOn} today={today} />
-        </>
-      )}
+      ) : null}
+
+      {unit.upcoming && <UpcomingLease upcoming={unit.upcoming} />}
 
       {unit.lease && <MoveOutForm today={today} />}
+      {canStartMoveIn && <MoveInForm today={today} />}
+
+      {unit.isVacant && (
+        <ListingForm
+          rent={unit.listingRent}
+          startedOn={unit.listingStartedOn}
+          today={today}
+          decided={unit.upcoming !== null}
+        />
+      )}
+
+      {unit.isVacant && !unit.upcoming && <RegisterLeaseForm today={today} />}
 
       <details className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
         <summary className="cursor-pointer text-lg font-bold">番号を直す</summary>
@@ -292,6 +333,117 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
 }
 
 /**
+ * 進行中の入居手続き。
+ *
+ * 部屋の状態（空室／入居中）とは別に、独立した枠で出す。
+ * 退居待ちの部屋では「今の入居者」と「次の入居者」が同時に並ぶため、
+ * どちらの話をしているのかが一目で分かる必要がある。
+ */
+function UpcomingLease({
+  upcoming,
+}: {
+  upcoming: { tenantName: string | null; contractDate: string; procedureId: string | null };
+}) {
+  return (
+    <section className="mt-6 rounded-xl border-2 border-emerald-500 bg-white p-4">
+      <h2 className="text-xl font-bold text-emerald-800">入居予定</h2>
+      <dl className="mt-3 space-y-2 text-base">
+        <Row label="入居者" value={upcoming.tenantName ?? "—"} />
+        <Row label="契約日" value={formatJa(upcoming.contractDate)} />
+      </dl>
+      {upcoming.procedureId && (
+        <Link
+          to={`/procedures/${upcoming.procedureId}`}
+          className="mt-4 block rounded-xl bg-emerald-700 px-4 py-3 text-center text-lg font-bold text-white hover:bg-emerald-800"
+        >
+          入居手続きを続ける
+        </Link>
+      )}
+      <p className="mt-3 text-sm text-slate-500">
+        手続きを終えると、この部屋の入居者が入れ替わります。
+      </p>
+    </section>
+  );
+}
+
+/**
+ * これから入る人の入居手続きを始める。
+ *
+ * **入居中の部屋でも、退居手続きが動いていれば出す。**
+ * 退居が終わる前に次が決まることがあり、そこで入口が無いと手が止まる。
+ *
+ * 家賃をここで訊くのは、入居手続きのチェック項目に金額を書く欄が無いため。
+ * 契約時に決まっている数字なので、始める時点で入れてもらう。
+ */
+function MoveInForm({ today }: { today: string }) {
+  return (
+    <details className="mt-6 rounded-xl border-2 border-sky-500 bg-white p-4">
+      <summary className="cursor-pointer text-lg font-bold text-sky-800">入居が決まった</summary>
+      <p className="mt-2 text-base text-slate-600">
+        入居手続きが始まります。募集はこの時点で取り下げます。
+      </p>
+
+      <Form method="post" className="mt-4 space-y-4">
+        <input type="hidden" name="intent" value="start_move_in" />
+
+        <label className="block">
+          <span className="text-base font-medium text-slate-700">入居者の氏名</span>
+          <input
+            type="text"
+            name="tenantName"
+            required
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-base font-medium text-slate-700">生年</span>
+          <span className="mt-0.5 block text-sm text-slate-500">西暦・任意</span>
+          <input
+            type="number"
+            name="birthYear"
+            inputMode="numeric"
+            placeholder="1985"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-base font-medium text-slate-700">契約日</span>
+          <input
+            type="date"
+            name="contractDate"
+            required
+            defaultValue={today}
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+          />
+        </label>
+
+        <label className="block">
+          <span className="text-base font-medium text-slate-700">家賃（円）</span>
+          <span className="mt-0.5 block text-sm text-slate-500">
+            任意。あとから契約の編集でも入れられます
+          </span>
+          <input
+            type="number"
+            name="rent"
+            inputMode="numeric"
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
+          />
+        </label>
+
+        <button
+          type="submit"
+          className="w-full rounded-xl bg-sky-600 px-4 py-3 text-lg font-bold text-white hover:bg-sky-700"
+        >
+          入居手続きを始める
+        </button>
+      </Form>
+    </details>
+  );
+}
+
+/**
  * すでに入居している部屋の契約を登録する。
  *
  * 新規入居は「入居手続き」から始まるが、導入時点で入居中の部屋は
@@ -302,10 +454,12 @@ function RegisterLeaseForm({ today }: { today: string }) {
   return (
     <details className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
       <summary className="cursor-pointer text-lg font-bold">
-        すでに入居中の部屋として登録する
+        導入時の登録（もう住んでいる人）
       </summary>
       <p className="mt-2 text-base text-slate-600">
-        導入時の登録用です。登録すると次回の更新手続きが自動で作られます。
+        Notion から移すときなど、<strong>入居手続きを踏まずに</strong>契約だけを入れる操作です。
+        これから入る人は上の「入居が決まった」から始めてください。
+        登録すると次回の更新手続きが自動で作られます。
       </p>
 
       <Form method="post" className="mt-4 space-y-4">
@@ -390,12 +544,17 @@ function ListingForm({
   rent,
   startedOn,
   today,
+  decided,
 }: {
   rent: number | null;
   startedOn: string | null;
   today: string;
+  /** 次の入居者が決まっているか。決まっていれば募集を促さない */
+  decided: boolean;
 }) {
-  const notSet = rent === null;
+  // 入居手続きの開始時に募集を取り下げているので、未設定なのは当たり前。
+  // ここで警告を出すと、対応の要らないものが黄色く光ることになる
+  const notSet = rent === null && !decided;
 
   return (
     <section
@@ -598,12 +757,20 @@ function LeaseHistory({ rows }: { rows: UnitLeaseRow[] }) {
               <span className="rounded-full bg-sky-100 px-2 py-0.5 text-sm text-sky-800">
                 現在
               </span>
+            ) : row.status === "pending" ? (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-sm text-emerald-800">
+                入居予定
+              </span>
             ) : (
               <span className="rounded-full bg-slate-200 px-2 py-0.5 text-sm">終了</span>
             )}
             <span className="text-slate-500 tabular-nums">
               {formatSlash(row.contractDate)} 〜{" "}
-              {row.status === "active" ? "現在" : formatSlash(row.endedOn) || "退去日なし"}
+              {row.status === "ended"
+                ? formatSlash(row.endedOn) || "退去日なし"
+                : row.status === "active"
+                  ? "現在"
+                  : "手続き中"}
             </span>
             {row.rent != null && (
               <span className="ml-auto tabular-nums">

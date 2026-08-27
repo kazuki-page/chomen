@@ -49,7 +49,15 @@ export const leases = sqliteTable(
     contractDate: dateOnly("contract_date").notNull(),
     /** 契約日の2年後の同日 */
     nextRenewalDate: dateOnly("next_renewal_date"),
-    status: text("status", { enum: ["active", "ended"] })
+    /**
+     * pending … 入居手続きの最中。まだ住んでいないので空室判定には数えない
+     * active  … 入居中。**1つの部屋に active は同時に1件まで**
+     * ended   … 退去済み
+     *
+     * 退居手続きの途中で次の入居手続きが始まることがあるため、
+     * pending は active と同じ部屋に同居できる。
+     */
+    status: text("status", { enum: ["pending", "active", "ended"] })
       .notNull()
       .default("active"),
     endedOn: dateOnly("ended_on"),

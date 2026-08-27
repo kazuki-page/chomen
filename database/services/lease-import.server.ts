@@ -78,7 +78,8 @@ export async function previewLeaseImport(
     .where(eq(leases.organizationId, ctx.organizationId));
 
   const occupied = new Set(
-    existingLeases.filter((l) => l.status === "active").map((l) => l.unitId),
+    // 入居手続き中の部屋も「埋まっている」扱いにする。二重登録を防ぐ
+    existingLeases.filter((l) => l.status !== "ended").map((l) => l.unitId),
   );
   const existingKeys = new Set(existingLeases.map((l) => `${l.unitId}:${l.contractDate}`));
 

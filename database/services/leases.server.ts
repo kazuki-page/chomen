@@ -178,3 +178,101 @@ export async function registerExistingLease(
 
   return { leaseId };
 }
+
+export type StartMoveInInput = {
+  unitId: string;
+  tenantName: string;
+  birthYear: number | null;
+  contractDate: IsoDate;
+  /** 家賃。契約時に決まっているはずだが、後から入れることもできる */
+  rent: number | null;
+};
+
+/**
+ * これから入る人の入居手続きを始める。
+ *
+ * 契約を **pending** で作るのが要点。入居手続きを終えるまでは住んでいないので、
+ * 空室判定（active な契約の有無）に数えさせない。
+ * 手続きの完了時に active へ変わり、そこで初めて部屋一覧の入居者が入れ替わる。
+ *
+ * **入居中の部屋でも始められる。** 退居手続きが終わる前に次の入居者が
+ * 決まることがあるため。active と pending は同じ部屋に同居する。
+ * 同時に進められる入居手続きは1件までなので、pending が居るときだけ弾く。
+ */
+export async function startMoveIn(
+  ctx: OrgContext,
+  input: StartMoveInInput,
+): Promise<{ leaseId: string; procedureId: string }> {
+  const [unit] = await ctx.db
+    .select({ id: units.id })
+    .from(units)
+    .where(and(eq(units.organizationId, ctx.organizationId), eq(units.id, input.unitId)));
+
+  if (!unit) throw new Response("部屋が見つかりません", { status: 404 });
+
+  const pending = await ctx.db
+    .select({ id: leases.id })
+    .from(leases)
+    .where(
+      and(
+        eq(leases.organizationId, ctx.organizationId),
+        eq(leases.unitId, input.unitId),
+        eq(leases.status, "pending"),
+      ),
+    )
+    .limit(1);
+
+  if (pending.length > 0) {
+    throw new Response("この部屋では入居手続きが進行中です", { status: 400 });
+  }
+
+  const tenantId = crypto.randomUUID();
+  const leaseId = crypto.randomUUID();
+
+  const writes: BatchItem<"sqlite">[] = [
+    ctx.db.insert(tenants).values({
+      id: tenantId,
+      organizationId: ctx.organizationId,
+      name: input.tenantName,
+      birthYear: input.birthYear,
+    }),
+    ctx.db.insert(leases).values({
+      id: leaseId,
+      organizationId: ctx.organizationId,
+      unitId: input.unitId,
+      tenantId,
+      contractDate: input.contractDate,
+      // 次回更新日は入居手続きの完了時に契約日の2年後として入る
+      nextRenewalDate: null,
+      status: "pending",
+    }),
+    // 入居が決まったので募集を取り下げる。手続きの完了を待たない
+    ctx.db
+      .update(units)
+      .set({ listingRent: null, listingStartedOn: null, updatedAt: new Date() })
+      .where(and(eq(units.organizationId, ctx.organizationId), eq(units.id, input.unitId))),
+  ];
+
+  if (input.rent !== null) {
+    writes.push(
+      ctx.db.insert(rentRevisions).values({
+        organizationId: ctx.organizationId,
+        leaseId,
+        effectiveFrom: input.contractDate,
+        amount: input.rent,
+        reason: "initial",
+        confirmed: true,
+      }),
+    );
+  }
+
+  await ctx.db.batch(writes as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
+
+  const procedureId = await startProcedure(ctx, {
+    leaseId,
+    type: "move_in",
+    scheduledOn: input.contractDate,
+  });
+
+  return { leaseId, procedureId };
+}
