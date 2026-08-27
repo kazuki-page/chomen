@@ -118,26 +118,26 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       )}
 
       {/*
-        入口を空室の見出しに置く。入居が決まるとこの一覧から1件消えるので、
+        入口を空室の節に置く。入居が決まるとこの一覧から1件消えるので、
         「決まった」ときに目が向いている場所がここになる。
-        退居手続き中の部屋もここから選べる（一覧には出ていなくても）
+        退居手続き中の部屋もここから選べる（一覧には出ていなくても）。
+
+        見出しの右に小さく添えると見落とされたため、幅いっぱいの帯にしている。
       */}
-      <Section
-        title="空室"
-        count={vacant.length}
-        action={
-          <Link
-            to="/move-in"
-            className="shrink-0 rounded-lg bg-sky-600 px-3 py-2 text-base font-bold text-white hover:bg-sky-700"
-          >
-            入居が決まった
-          </Link>
-        }
-      >
+      <Section title="空室" count={vacant.length}>
+        <Link
+          to="/move-in"
+          className="block rounded-xl bg-sky-600 px-4 py-3 text-center text-lg font-bold text-white hover:bg-sky-700"
+        >
+          入居が決まった
+        </Link>
+
         {vacant.length === 0 ? (
-          <Empty>空室はありません</Empty>
+          <div className="mt-3">
+            <Empty>空室はありません</Empty>
+          </div>
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="mt-3 grid gap-3 sm:grid-cols-2">
             {vacant.map((u) => (
               <li key={u.id}>
                 <Link
@@ -187,26 +187,20 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 function Section({
   title,
   count,
-  action,
   children,
 }: {
   title: string;
   count: number;
-  /** 見出しの右に置く操作。無ければ見出しだけ */
-  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="mt-8">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-bold text-sky-800">
-          {title}
-          <span className="ml-2 text-base font-medium text-slate-500">
-            ({count})
-          </span>
-        </h2>
-        {action}
-      </div>
+      <h2 className="text-xl font-bold text-sky-800">
+        {title}
+        <span className="ml-2 text-base font-medium text-slate-500">
+          ({count})
+        </span>
+      </h2>
       <div className="mt-3">{children}</div>
     </section>
   );
