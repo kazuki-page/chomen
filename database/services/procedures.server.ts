@@ -94,8 +94,8 @@ export async function setItemChecked(
  * |-----------|-----------------------------------------------------------------|
  * | 入居完了   | 契約を有効化、部屋の募集情報をクリア、2年後の更新手続きを自動生成      |
  * | 更新完了   | 家賃改定を確定、次回更新日を更新、次回の更新手続きを自動生成           |
- * | 退居完了   | 契約を終了。部屋は「有効な契約が無い」ことで自動的に空室になる。          |
- * |           | 来ないと決まった更新手続きを取り消す                                  |
+ * | 退居開始   | 来ないと決まった更新手続きを取り消す（startProcedure 側）              |
+ * | 退居完了   | 契約を終了。部屋は「有効な契約が無い」ことで自動的に空室になる          |
  */
 async function completeProcedure(
   ctx: OrgContext,
@@ -199,6 +199,8 @@ async function completeProcedure(
             ),
           ),
       );
+      // 通常は退居手続きの開始時に消えている。ここは取りこぼしの受け皿で、
+      // この変更より前に始まった退居手続きを完了させたときに効く
       writes.push(...(await cancelUnfinishedRenewals(ctx, proc.leaseId)));
       // 募集家賃・募集開始日はここでは設定しない。
       // いくらで募集するかは人が決めることなので、画面側で入力を促す。
@@ -276,13 +278,17 @@ async function endPreviousLease(
 }
 
 /**
- * 契約が終わったときに、**行われないと決まった更新手続きを取り消す。**
+ * **行われないと決まった更新手続きを取り消す。**
+ *
+ * 呼ぶのは2か所。**退居手続きの開始時**（退去が決まった時点で更新は無くなる）と、
+ * 入居手続きの完了で前の契約を切り替えるとき。
  *
  * 更新手続きは入居や前回更新の完了時に2年先ぶんが自動で作られる。
- * 退去した人の更新は永遠に来ないが、放っておくと
- * `procedures.status != 'done'` を見ているホーム画面の「やること」に残り続け、
- * **退去した入居者の名前が並ぶ。**放置に気づかせるための画面が、
- * 対応できない項目で埋まってしまう。
+ * 退去する人の更新は来ないが、放っておくと2つの形で邪魔になる。
+ *   - 部屋の手続き一覧に「次回更新」と「退居」が並び、どちらに従うのか分からない
+ *   - ホーム画面の「やること」は `procedures.status != 'done'` しか見ていないため、
+ *     退去した入居者の名前が残り続ける。放置に気づかせるための画面が、
+ *     対応できない項目で埋まる
  *
  * 完了済みの更新手続きには触らない。実際に行われた更新の履歴なので残す。
  *
@@ -351,16 +357,24 @@ export async function startProcedure(
   input: { leaseId: string; type: ProcedureType; scheduledOn: IsoDate },
 ): Promise<string> {
   const procedureId = crypto.randomUUID();
-  await runBatch(
+  const writes = buildProcedureInserts(
     ctx,
-    buildProcedureInserts(
-      ctx,
-      input.leaseId,
-      input.type,
-      input.scheduledOn,
-      procedureId,
-    ),
+    input.leaseId,
+    input.type,
+    input.scheduledOn,
+    procedureId,
   );
+
+  /*
+   * 退去が決まった時点で更新は無くなる。**完了を待たない。**
+   * 待つと、その部屋の手続きに「次回更新」と「退居」が同時に並び、
+   * どちらに従えばいいのか読み取れない画面になる。
+   */
+  if (input.type === "move_out") {
+    writes.push(...(await cancelUnfinishedRenewals(ctx, input.leaseId)));
+  }
+
+  await runBatch(ctx, writes);
   return procedureId;
 }
 
