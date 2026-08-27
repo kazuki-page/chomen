@@ -8,6 +8,7 @@ export default [
   route("units/:unitId", "routes/unit.tsx"),
   route("buildings/new", "routes/building-new.tsx"),
   route("buildings/:buildingId", "routes/building.tsx"),
+  route("move-in", "routes/move-in.tsx"),
   route("procedures/:procedureId", "routes/procedure.tsx"),
   route("equipment", "routes/equipment.tsx"),
   route("equipment/new", "routes/equipment-new.tsx"),

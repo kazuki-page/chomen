@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 
 import type { IsoDate } from "~/lib/date";
 import type { OrgContext } from "../context.server";
@@ -60,7 +60,10 @@ export async function listUnits(
       currentRent: currentRent,
     })
     .from(units)
-    .leftJoin(leases, and(eq(leases.unitId, units.id), eq(leases.status, "active")))
+    .leftJoin(
+      leases,
+      and(eq(leases.unitId, units.id), eq(leases.status, "active")),
+    )
     .leftJoin(tenants, eq(tenants.id, leases.tenantId))
     .where(eq(units.organizationId, ctx.organizationId))
     .orderBy(asc(units.displayOrder), asc(units.code));
@@ -90,13 +93,18 @@ export async function listUnits(
  * **上の JOIN には混ぜられない。** 退居待ちの部屋には active と pending が
  * 同居するため、条件を広げると1つの部屋が2行になって一覧に二重に並ぶ。
  */
-async function pendingTenantsByUnit(ctx: OrgContext): Promise<Map<string, string>> {
+async function pendingTenantsByUnit(
+  ctx: OrgContext,
+): Promise<Map<string, string>> {
   const rows = await ctx.db
     .select({ unitId: leases.unitId, tenantName: tenants.name })
     .from(leases)
     .innerJoin(tenants, eq(tenants.id, leases.tenantId))
     .where(
-      and(eq(leases.organizationId, ctx.organizationId), eq(leases.status, "pending")),
+      and(
+        eq(leases.organizationId, ctx.organizationId),
+        eq(leases.status, "pending"),
+      ),
     );
 
   return new Map(rows.map((r) => [r.unitId, r.tenantName]));
@@ -115,6 +123,76 @@ export async function listUnitOptions(ctx: OrgContext): Promise<UnitOption[]> {
     .from(units)
     .where(eq(units.organizationId, ctx.organizationId))
     .orderBy(asc(units.displayOrder), asc(units.code));
+}
+
+export type MoveInTarget = UnitOption & {
+  /** 選択肢に添える状態。空室なのか、退居待ちなのか */
+  note: string;
+};
+
+/**
+ * これから入居手続きを始められる部屋。
+ *
+ *   - 空室
+ *   - 退居手続きが進行中の部屋（終わる前に次が決まることがある）
+ *
+ * すでに入居手続きが動いている部屋は外す。1部屋に同時に1件までのため。
+ *
+ * **相関サブクエリを使わず、素直に3回引いて JS で突き合わせている。**
+ * JOIN の無いクエリで `${units.id}` を埋め込むと、Drizzle が修飾なしの
+ * `"id"` を出力し、SQLite がサブクエリ側の列に解決してしまう事故がある。
+ * 部屋数は数十なので、読みやすさを取る。
+ */
+export async function listMoveInTargets(
+  ctx: OrgContext,
+): Promise<MoveInTarget[]> {
+  const [all, live, openMoveOuts] = await Promise.all([
+    listUnitOptions(ctx),
+    ctx.db
+      .select({
+        leaseId: leases.id,
+        unitId: leases.unitId,
+        status: leases.status,
+        tenantName: tenants.name,
+      })
+      .from(leases)
+      .innerJoin(tenants, eq(tenants.id, leases.tenantId))
+      .where(
+        and(
+          eq(leases.organizationId, ctx.organizationId),
+          inArray(leases.status, ["pending", "active"]),
+        ),
+      ),
+    ctx.db
+      .select({ leaseId: procedures.leaseId })
+      .from(procedures)
+      .where(
+        and(
+          eq(procedures.organizationId, ctx.organizationId),
+          eq(procedures.type, "move_out"),
+          ne(procedures.status, "done"),
+        ),
+      ),
+  ]);
+
+  const movingOut = new Set(openMoveOuts.map((r) => r.leaseId));
+  const pending = new Set(
+    live.filter((l) => l.status === "pending").map((l) => l.unitId),
+  );
+  const active = new Map(
+    live.filter((l) => l.status === "active").map((l) => [l.unitId, l]),
+  );
+
+  return all.flatMap((unit) => {
+    if (pending.has(unit.id)) return [];
+
+    const current = active.get(unit.id);
+    if (!current) return [{ ...unit, note: "空室" }];
+    if (movingOut.has(current.leaseId)) {
+      return [{ ...unit, note: `退居手続き中・${current.tenantName}` }];
+    }
+    return [];
+  });
 }
 
 export type UnitDetail = {
@@ -171,9 +249,14 @@ export async function getUnitDetail(
       currentRent,
     })
     .from(units)
-    .leftJoin(leases, and(eq(leases.unitId, units.id), eq(leases.status, "active")))
+    .leftJoin(
+      leases,
+      and(eq(leases.unitId, units.id), eq(leases.status, "active")),
+    )
     .leftJoin(tenants, eq(tenants.id, leases.tenantId))
-    .where(and(eq(units.organizationId, ctx.organizationId), eq(units.id, unitId)));
+    .where(
+      and(eq(units.organizationId, ctx.organizationId), eq(units.id, unitId)),
+    );
 
   if (!row) return null;
 
@@ -268,7 +351,12 @@ export async function listLeasesForUnit(
     })
     .from(leases)
     .innerJoin(tenants, eq(tenants.id, leases.tenantId))
-    .where(and(eq(leases.organizationId, ctx.organizationId), eq(leases.unitId, unitId)))
+    .where(
+      and(
+        eq(leases.organizationId, ctx.organizationId),
+        eq(leases.unitId, unitId),
+      ),
+    )
     .orderBy(desc(leases.contractDate));
 }
 
@@ -305,7 +393,10 @@ export async function listRentHistoryForUnit(
     .innerJoin(leases, eq(leases.id, rentRevisions.leaseId))
     .leftJoin(tenants, eq(tenants.id, leases.tenantId))
     .where(
-      and(eq(rentRevisions.organizationId, ctx.organizationId), eq(leases.unitId, unitId)),
+      and(
+        eq(rentRevisions.organizationId, ctx.organizationId),
+        eq(leases.unitId, unitId),
+      ),
     )
     .orderBy(desc(rentRevisions.effectiveFrom));
 }
@@ -328,7 +419,9 @@ export async function updateListing(
       listingStartedOn: input.startedOn,
       updatedAt: new Date(),
     })
-    .where(and(eq(units.organizationId, ctx.organizationId), eq(units.id, unitId)));
+    .where(
+      and(eq(units.organizationId, ctx.organizationId), eq(units.id, unitId)),
+    );
 }
 
 /** 一覧上部に出すサマリ */
@@ -336,7 +429,13 @@ export function summarize(items: UnitListItem[]) {
   const rooms = items.filter((i) => i.type === "room");
   const parking = items.filter((i) => i.type === "parking");
   return {
-    rooms: { total: rooms.length, vacant: rooms.filter((i) => i.isVacant).length },
-    parking: { total: parking.length, vacant: parking.filter((i) => i.isVacant).length },
+    rooms: {
+      total: rooms.length,
+      vacant: rooms.filter((i) => i.isVacant).length,
+    },
+    parking: {
+      total: parking.length,
+      vacant: parking.filter((i) => i.isVacant).length,
+    },
   };
 }

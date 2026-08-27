@@ -11,6 +11,7 @@ import {
   type UnitLeaseRow,
 } from "@db/repositories/units.server";
 import { listWorkOrders } from "@db/repositories/work-orders.server";
+import { MoveInFields } from "~/components/move-in-form";
 import { deleteLease } from "@db/services/lease-delete.server";
 import { updateLeaseDetails } from "@db/services/lease-edit.server";
 import { registerExistingLease, startMoveIn } from "@db/services/leases.server";
@@ -28,6 +29,7 @@ import {
   todayInTokyo,
 } from "~/lib/date";
 import { requireOrg } from "~/lib/auth.server";
+import { parseMoveInForm } from "~/lib/move-in-form.server";
 import type { Route } from "./+types/unit";
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -86,21 +88,12 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (intent === "start_move_in") {
-    const contractDate = String(form.get("contractDate") ?? "");
-    const name = String(form.get("tenantName") ?? "").trim();
+    const parsed = parseMoveInForm(form);
+    if (!parsed.ok) return { error: parsed.error };
 
-    if (!name || !contractDate) {
-      return { error: "氏名と契約日を入力してください" };
-    }
-
-    const birthYear = Number(form.get("birthYear"));
-    const rent = Number(form.get("rent"));
     const { procedureId } = await startMoveIn(ctx, {
       unitId: params.unitId,
-      tenantName: name,
-      birthYear: Number.isFinite(birthYear) && birthYear > 0 ? birthYear : null,
-      contractDate,
-      rent: Number.isFinite(rent) && rent > 0 ? rent : null,
+      ...parsed.value,
     });
 
     // 作って終わりではなく、そのままチェックリストへ送る
@@ -433,69 +426,8 @@ function MoveInForm({ today }: { today: string }) {
       <p className="mt-2 text-base text-slate-600">
         入居手続きが始まります。募集はこの時点で取り下げます。
       </p>
-
-      <Form method="post" className="mt-4 space-y-4">
-        <input type="hidden" name="intent" value="start_move_in" />
-
-        <label className="block">
-          <span className="text-base font-medium text-slate-700">
-            入居者の氏名
-          </span>
-          <input
-            type="text"
-            name="tenantName"
-            required
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-base font-medium text-slate-700">生年</span>
-          <span className="mt-0.5 block text-sm text-slate-500">
-            西暦・任意
-          </span>
-          <input
-            type="number"
-            name="birthYear"
-            inputMode="numeric"
-            placeholder="1985"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-base font-medium text-slate-700">契約日</span>
-          <input
-            type="date"
-            name="contractDate"
-            required
-            defaultValue={today}
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-base font-medium text-slate-700">
-            家賃（円）
-          </span>
-          <span className="mt-0.5 block text-sm text-slate-500">
-            任意。あとから契約の編集でも入れられます
-          </span>
-          <input
-            type="number"
-            name="rent"
-            inputMode="numeric"
-            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg tabular-nums"
-          />
-        </label>
-
-        <button
-          type="submit"
-          className="w-full rounded-xl bg-sky-600 px-4 py-3 text-lg font-bold text-white hover:bg-sky-700"
-        >
-          入居手続きを始める
-        </button>
-      </Form>
+      {/* 部屋はこのページで決まっているので、選択欄は出さない */}
+      <MoveInFields today={today} />
     </details>
   );
 }

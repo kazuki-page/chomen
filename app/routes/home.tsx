@@ -14,7 +14,13 @@ import {
   type WorkOrderListItem,
 } from "@db/repositories/work-orders.server";
 import { RENEWAL_LEAD_MONTHS, STALE_THRESHOLD_DAYS } from "~/lib/constants";
-import { addMonths, formatJa, formatSlash, monthRange, todayInTokyo } from "~/lib/date";
+import {
+  addMonths,
+  formatJa,
+  formatSlash,
+  monthRange,
+  todayInTokyo,
+} from "~/lib/date";
 import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/home";
 
@@ -30,13 +36,14 @@ export async function loader({ request }: Route.LoaderArgs) {
   // 更新手続きは予定日の RENEWAL_LEAD_MONTHS か月前から「やること」に出す
   const renewalUntil = addMonths(asOf, RENEWAL_LEAD_MONTHS);
 
-  const [procedures, workOrders, units, thisMonth, laterRenewals] = await Promise.all([
-    listOpenProcedures(ctx, { renewalUntil }),
-    listOpenWorkOrders(ctx, { now }),
-    listUnits(ctx, { asOf }),
-    listProceduresInMonth(ctx, monthRange(asOf)),
-    listLaterRenewals(ctx, { after: renewalUntil }),
-  ]);
+  const [procedures, workOrders, units, thisMonth, laterRenewals] =
+    await Promise.all([
+      listOpenProcedures(ctx, { renewalUntil }),
+      listOpenWorkOrders(ctx, { now }),
+      listUnits(ctx, { asOf }),
+      listProceduresInMonth(ctx, monthRange(asOf)),
+      listLaterRenewals(ctx, { after: renewalUntil }),
+    ]);
 
   return {
     procedures,
@@ -51,7 +58,8 @@ export async function loader({ request }: Route.LoaderArgs) {
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
-  const { procedures, workOrders, vacant, thisMonth, laterRenewals } = loaderData;
+  const { procedures, workOrders, vacant, thisMonth, laterRenewals } =
+    loaderData;
   const todoCount = procedures.length + workOrders.length;
   const staleCount = workOrders.filter((w) => w.isStale).length;
 
@@ -99,7 +107,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                     {formatJa(r.scheduledOn)}
                   </span>
                   <span className="font-bold tabular-nums">{r.unitCode}</span>
-                  <span className="min-w-0 truncate text-slate-600">{r.tenantName}</span>
+                  <span className="min-w-0 truncate text-slate-600">
+                    {r.tenantName}
+                  </span>
                 </Link>
               </li>
             ))}
@@ -107,7 +117,23 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         </details>
       )}
 
-      <Section title="空室" count={vacant.length}>
+      {/*
+        入口を空室の見出しに置く。入居が決まるとこの一覧から1件消えるので、
+        「決まった」ときに目が向いている場所がここになる。
+        退居手続き中の部屋もここから選べる（一覧には出ていなくても）
+      */}
+      <Section
+        title="空室"
+        count={vacant.length}
+        action={
+          <Link
+            to="/move-in"
+            className="shrink-0 rounded-lg bg-sky-600 px-3 py-2 text-base font-bold text-white hover:bg-sky-700"
+          >
+            入居が決まった
+          </Link>
+        }
+      >
         {vacant.length === 0 ? (
           <Empty>空室はありません</Empty>
         ) : (
@@ -118,12 +144,16 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   to={`/units/${u.id}`}
                   className="flex items-center justify-between rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 hover:border-amber-500"
                 >
-                  <span className="text-xl font-bold tabular-nums">{u.code}</span>
+                  <span className="text-xl font-bold tabular-nums">
+                    {u.code}
+                  </span>
                   <span className="text-base text-slate-700">
                     {u.rent != null ? (
                       `${u.rent.toLocaleString("ja-JP")}円で募集中`
                     ) : (
-                      <span className="font-bold text-amber-800">募集家賃を入力</span>
+                      <span className="font-bold text-amber-800">
+                        募集家賃を入力
+                      </span>
                     )}
                   </span>
                 </Link>
@@ -140,7 +170,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
             {thisMonth.map((p) => (
               <li key={p.id} className="flex items-center gap-3 px-4 py-3">
-                <span className="w-28 shrink-0 text-slate-500">{formatJa(p.scheduledOn)}</span>
+                <span className="w-28 shrink-0 text-slate-500">
+                  {formatJa(p.scheduledOn)}
+                </span>
                 <span className="font-bold tabular-nums">{p.unitCode}</span>
                 <span className="text-slate-700">{p.typeLabel}</span>
               </li>
@@ -155,18 +187,26 @@ export default function Home({ loaderData }: Route.ComponentProps) {
 function Section({
   title,
   count,
+  action,
   children,
 }: {
   title: string;
   count: number;
+  /** 見出しの右に置く操作。無ければ見出しだけ */
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="mt-8">
-      <h2 className="text-xl font-bold text-sky-800">
-        {title}
-        <span className="ml-2 text-base font-medium text-slate-500">({count})</span>
-      </h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xl font-bold text-sky-800">
+          {title}
+          <span className="ml-2 text-base font-medium text-slate-500">
+            ({count})
+          </span>
+        </h2>
+        {action}
+      </div>
       <div className="mt-3">{children}</div>
     </section>
   );
@@ -187,12 +227,16 @@ function ProcedureRow({ procedure }: { procedure: ProcedureSummary }) {
       accent={procedure.typeLabel === "修繕" ? "amber" : "navy"}
       badge={{ label: procedure.typeLabel, tone: "navy" }}
       code={`${procedure.unitCode}号室`}
-      right={<Progress done={procedure.doneCount} total={procedure.totalCount} />}
+      right={
+        <Progress done={procedure.doneCount} total={procedure.totalCount} />
+      }
       title={procedure.nextItemLabel ?? "完了できます"}
       meta={
         <>
           {procedure.scheduledOn && (
-            <span className="tabular-nums">予定日 {formatSlash(procedure.scheduledOn)}</span>
+            <span className="tabular-nums">
+              予定日 {formatSlash(procedure.scheduledOn)}
+            </span>
           )}
           {procedure.tenantName && <span>・ {procedure.tenantName}</span>}
         </>
@@ -207,7 +251,11 @@ function WorkOrderRow({ workOrder }: { workOrder: WorkOrderListItem }) {
       to={`/work-orders/${workOrder.id}`}
       accent={workOrder.isStale ? "rose" : "amber"}
       badge={{ label: "修繕", tone: workOrder.isStale ? "rose" : "amber" }}
-      code={workOrder.unitCode ? `${workOrder.unitCode}号室` : (workOrder.locationNote ?? "共用部")}
+      code={
+        workOrder.unitCode
+          ? `${workOrder.unitCode}号室`
+          : (workOrder.locationNote ?? "共用部")
+      }
       right={
         workOrder.isStale ? (
           <Badge tone="rose">{workOrder.staleDays}日 動きなし</Badge>
@@ -216,7 +264,9 @@ function WorkOrderRow({ workOrder }: { workOrder: WorkOrderListItem }) {
       title={workOrder.title}
       meta={
         <>
-          <span className="tabular-nums">発生 {formatSlash(workOrder.occurredOn)}</span>
+          <span className="tabular-nums">
+            発生 {formatSlash(workOrder.occurredOn)}
+          </span>
           <span>
             ・ {workOrder.handlerLabel}
             {workOrder.waitingOn ? ` — ${workOrder.waitingOn}まち` : ""}
