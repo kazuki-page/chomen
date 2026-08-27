@@ -45,6 +45,34 @@ if ("serviceWorker" in navigator) {
 `;
 
 /**
+ * 1行の入力欄でエンターを押しても送信しない。
+ *
+ * HTML の既定では、送信ボタンを持つフォームの1行入力でエンターを押すと
+ * そのまま送信される。Android の画面キーボードは右下に実行・完了キーがあり、
+ * **打ち終わりの指がそのまま当たる。** 誤って当たったとき、
+ * 手続きが1つ進んだり、入居・退居が始まったりしても気づけない。
+ *
+ * 素通しにするもの:
+ *   - 複数行の入力（textarea）… 改行そのものが目的
+ *   - ボタン・リンク … エンターで押せないと、キーボードだけで操作できなくなる
+ *   - 日本語変換の最中 … 変換の確定を奪うと文字が打てない。
+ *     isComposing に加えて keyCode 229 も見る（Android の一部で前者が立たない）
+ *
+ * React ではなくこの素のスクリプトで入れている。フォームは JavaScript の
+ * 読み込み前でも動くため、**画面が出た時点で効いている必要がある**。
+ */
+const BLOCK_ENTER_SUBMIT = `
+addEventListener("keydown", function (e) {
+  if (e.key !== "Enter") return;
+  if (e.isComposing || e.keyCode === 229) return;
+  var el = e.target;
+  if (!(el instanceof HTMLInputElement)) return;
+  if (!el.form) return;
+  e.preventDefault();
+}, true);
+`;
+
+/**
  * SNS やメッセンジャーに貼られたときのカード。
  *
  * デモと本番で中身を変える。読む相手が違うため。
@@ -110,6 +138,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
         <ScrollRestoration />
         <Scripts />
+        <script dangerouslySetInnerHTML={{ __html: BLOCK_ENTER_SUBMIT }} />
         <script dangerouslySetInnerHTML={{ __html: REGISTER_SW }} />
       </body>
     </html>
