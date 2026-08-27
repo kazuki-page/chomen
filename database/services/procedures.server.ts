@@ -278,6 +278,82 @@ async function endPreviousLease(
 }
 
 /**
+ * 退居手続きを取り消す。**誤って始めたときの取り消し用。**
+ *
+ * 退居の連絡が来た時点で更新手続きを消しているため、始めた側だけを消すと
+ * 契約に手続きが1つも無い状態になり、次回更新が永久に来なくなる。
+ * そこで**更新手続きを作り直す。** 予定日は契約が持っている次回更新日を使う。
+ *
+ * 作り直したチェックリストは白紙になる。取り消した退居手続きの内容も、
+ * 更新手続きに入っていた「更新通知内容を決定」の予定家賃も戻らない。
+ * 消えたものを装って中途半端に復元するより、入れ直してもらうほうが確か。
+ *
+ * 完了した退居手続きは取り消せない。契約の終了や空室化まで巻き戻す必要があり、
+ * それは「契約を削除する」の領分（履歴ごと消す）になる。
+ */
+export async function cancelMoveOut(
+  ctx: OrgContext,
+  procedureId: string,
+): Promise<{ unitId: string }> {
+  const proc = await loadProcedure(ctx, procedureId);
+  if (!proc) throw new Response("手続きが見つかりません", { status: 404 });
+  if (proc.type !== "move_out") {
+    throw new Response("退居手続きではありません", { status: 400 });
+  }
+  if (proc.status === "done") {
+    throw new Response("完了した退居手続きは取り消せません", { status: 400 });
+  }
+
+  const writes: Writes = [
+    ctx.db
+      .delete(procedureItems)
+      .where(
+        and(
+          eq(procedureItems.organizationId, ctx.organizationId),
+          eq(procedureItems.procedureId, proc.id),
+        ),
+      ),
+    ctx.db
+      .delete(procedures)
+      .where(
+        and(
+          eq(procedures.organizationId, ctx.organizationId),
+          eq(procedures.id, proc.id),
+        ),
+      ),
+  ];
+
+  // 退居の開始時に消した更新手続きを戻す。
+  // すでに何らかの更新手続きが居るなら二重に作らない
+  const existing = await ctx.db
+    .select({ id: procedures.id })
+    .from(procedures)
+    .where(
+      and(
+        eq(procedures.organizationId, ctx.organizationId),
+        eq(procedures.leaseId, proc.leaseId),
+        eq(procedures.type, "renewal"),
+        ne(procedures.status, "done"),
+      ),
+    )
+    .limit(1);
+
+  if (existing.length === 0 && proc.nextRenewalDate) {
+    writes.push(
+      ...buildProcedureInserts(
+        ctx,
+        proc.leaseId,
+        "renewal",
+        proc.nextRenewalDate,
+      ),
+    );
+  }
+
+  await runBatch(ctx, writes);
+  return { unitId: proc.unitId };
+}
+
+/**
  * **行われないと決まった更新手続きを取り消す。**
  *
  * 呼ぶのは2か所。**退居手続きの開始時**（退去が決まった時点で更新は無くなる）と、

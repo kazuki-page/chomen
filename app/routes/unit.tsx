@@ -53,7 +53,9 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       listLeasesForUnit(ctx, unit.id),
     ]);
 
-  const deleted = new URL(request.url).searchParams.get("deleted");
+  const params_ = new URL(request.url).searchParams;
+  const deleted = params_.get("deleted");
+  const canceled = params_.get("canceled") === "move_out";
 
   return {
     unit,
@@ -64,6 +66,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     leaseHistory,
     today,
     deleted,
+    canceled,
   };
 }
 
@@ -184,6 +187,7 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
     leaseHistory,
     today,
     deleted,
+    canceled,
   } = loaderData;
 
   // 退居手続きの途中で次の入居者が決まることがある。
@@ -202,6 +206,12 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
       {deleted && (
         <p className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base text-emerald-900">
           {deleted} の契約を削除しました
+        </p>
+      )}
+
+      {canceled && (
+        <p className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-base text-emerald-900">
+          退居手続きを取り消し、次回の更新手続きを作り直しました
         </p>
       )}
 

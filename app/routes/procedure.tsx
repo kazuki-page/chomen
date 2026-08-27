@@ -2,7 +2,7 @@ import { Form, Link, redirect } from "react-router";
 
 import { templateFor } from "@db/procedure-templates";
 import { getProcedure } from "@db/repositories/procedures.server";
-import { setItemChecked } from "@db/services/procedures.server";
+import { cancelMoveOut, setItemChecked } from "@db/services/procedures.server";
 import { formatJa } from "~/lib/date";
 import { requireOrg } from "~/lib/auth.server";
 import type { Route } from "./+types/procedure";
@@ -23,6 +23,12 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 export async function action({ request, params }: Route.ActionArgs) {
   const { ctx } = await requireOrg(request);
   const form = await request.formData();
+
+  if (form.get("intent") === "cancel_move_out") {
+    const { unitId } = await cancelMoveOut(ctx, params.procedureId);
+    return redirect(`/units/${unitId}?canceled=move_out`);
+  }
+
   const rent = form.get("newRent");
 
   await setItemChecked(ctx, {
@@ -50,14 +56,20 @@ export default function Procedure({ loaderData }: Route.ComponentProps) {
 
       <header className="mt-3">
         <div className="flex items-center gap-3">
-          <span className="text-3xl font-bold tabular-nums">{procedure.unitCode}</span>
+          <span className="text-3xl font-bold tabular-nums">
+            {procedure.unitCode}
+          </span>
           <span className="rounded-full bg-slate-200 px-3 py-1 text-base font-medium">
             {procedure.typeLabel}
           </span>
         </div>
         <p className="mt-2 text-slate-600">
-          {procedure.tenantName && <span className="mr-3">{procedure.tenantName}</span>}
-          {procedure.scheduledOn && <span>予定日 {formatJa(procedure.scheduledOn)}</span>}
+          {procedure.tenantName && (
+            <span className="mr-3">{procedure.tenantName}</span>
+          )}
+          {procedure.scheduledOn && (
+            <span>予定日 {formatJa(procedure.scheduledOn)}</span>
+          )}
         </p>
         <p className="mt-1 text-sm text-slate-500 tabular-nums">
           {procedure.doneCount} / {procedure.totalCount} 完了
@@ -72,7 +84,9 @@ export default function Procedure({ loaderData }: Route.ComponentProps) {
         <NextStep
           item={nextItem}
           type={procedure.type}
-          valueLabel={template.items.find((t) => t.key === nextItem.key)?.valueLabel}
+          valueLabel={
+            template.items.find((t) => t.key === nextItem.key)?.valueLabel
+          }
           hint={template.items.find((t) => t.key === nextItem.key)?.hint}
         />
       ) : null}
@@ -93,11 +107,17 @@ export default function Procedure({ loaderData }: Route.ComponentProps) {
                 {item.checked ? "✓" : ""}
               </span>
               <div className="min-w-0 flex-1">
-                <p className={item.checked ? "text-slate-500 line-through" : "font-medium"}>
+                <p
+                  className={
+                    item.checked ? "text-slate-500 line-through" : "font-medium"
+                  }
+                >
                   {item.label}
                 </p>
                 {item.valueText && (
-                  <p className="mt-0.5 text-sm text-slate-500">{item.valueText}</p>
+                  <p className="mt-0.5 text-sm text-slate-500">
+                    {item.valueText}
+                  </p>
                 )}
               </div>
               {item.checked && !isDone && (
@@ -116,7 +136,43 @@ export default function Procedure({ loaderData }: Route.ComponentProps) {
           ))}
         </ol>
       </section>
+
+      {procedure.type === "move_out" && !isDone && <CancelMoveOut />}
     </main>
+  );
+}
+
+/**
+ * 退居手続きの取り消し。**誤って始めたときのための出口。**
+ *
+ * 枠を付けず、ページの一番下に小さく置く。使うのは間違えたときだけで、
+ * 目立つ位置にあると「退居をやめる」操作だと読み違えられる。
+ * 元に戻せないので、何が起きるかを開いてから見せる。
+ */
+function CancelMoveOut() {
+  return (
+    <details className="mt-8">
+      <summary className="cursor-pointer text-sm text-slate-500">
+        この退居手続きを取り消す
+      </summary>
+      <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 p-3">
+        <p className="text-sm text-rose-900">
+          間違えて始めたときの操作です。退居の取りやめではありません。
+          取り消すと<strong>この手続きの記入内容は消え</strong>、
+          退居の連絡時に取り消した次回の更新手続きが白紙で作り直されます。
+          <strong className="ml-1">元に戻せません。</strong>
+        </p>
+        <Form method="post" className="mt-3">
+          <input type="hidden" name="intent" value="cancel_move_out" />
+          <button
+            type="submit"
+            className="w-full rounded-lg border-2 border-rose-700 px-4 py-3 text-base font-bold text-rose-800 hover:bg-rose-100"
+          >
+            退居手続きを取り消す
+          </button>
+        </Form>
+      </div>
+    </details>
   );
 }
 
@@ -146,7 +202,9 @@ function NextStep({
 
         {valueLabel && (
           <label className="block">
-            <span className="text-base font-medium text-slate-700">{valueLabel}</span>
+            <span className="text-base font-medium text-slate-700">
+              {valueLabel}
+            </span>
             <input
               type="text"
               name="valueText"
@@ -157,7 +215,9 @@ function NextStep({
 
         {asksRent && (
           <label className="block">
-            <span className="text-base font-medium text-slate-700">更新後の家賃（円）</span>
+            <span className="text-base font-medium text-slate-700">
+              更新後の家賃（円）
+            </span>
             <input
               type="number"
               name="newRent"
