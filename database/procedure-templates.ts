@@ -57,7 +57,7 @@ export const PROCEDURE_TEMPLATES: Record<ProcedureType, ProcedureTemplate> = {
         key: "new_rent_received",
         label: "家賃変更後の金額での入金を確認",
         valueLabel: "確認した年月",
-        hint: "家賃を変えていない場合は「家賃変更無し」と入力してください",
+        hint: "家賃を変えていない場合は、空欄のまま完了にしてください",
       },
     ],
   },
