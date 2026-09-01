@@ -116,14 +116,25 @@ Node 22.18 以上（シード生成が TypeScript を直接読むため）。
 
 ```bash
 npm install
-cp .dev.vars.example .dev.vars   # BETTER_AUTH_SECRET を設定
+cp .dev.vars.example .dev.vars   # BETTER_AUTH_SECRET と BOOTSTRAP_SECRET を設定
 npm run db:migrate               # ローカル D1 にスキーマを適用
 npm run db:seed                  # 架空のデモデータを投入
 npm run dev
 ```
 
-初回は `/signup` から最初のアカウント（管理者）を作成する。
+初回は `/signup` から、`.dev.vars` の `BOOTSTRAP_SECRET` を使って
+最初のアカウント（管理者）を作成する。
 以降のユーザーは設定画面から発行する招待リンク経由でのみ登録できる。
+
+本番を新規セットアップするときは、デプロイ前に十分に長いランダム値を登録する。
+
+```bash
+openssl rand -base64 32
+npx wrangler secret put BOOTSTRAP_SECRET
+```
+
+`BOOTSTRAP_SECRET` は最初の管理者が存在する環境では使われない。
+デモ環境にも初回管理者がすでに存在するなら、追加登録は不要。
 
 ローカルのアカウントを作り直したいときは次を実行する。
 実行後は再び `/signup` で初回セットアップができる（業務データは消えない）。

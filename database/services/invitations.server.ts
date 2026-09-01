@@ -2,7 +2,11 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 
 import type { Database, OrgContext } from "../context.server";
 import type { Role } from "../repositories/memberships.server";
-import { findFirstOrganization, hasNoUsers } from "../repositories/memberships.server";
+import {
+  findFirstOrganization,
+  hasNoUsers,
+  isOnlyUser,
+} from "../repositories/memberships.server";
 import { invitations, memberships, organizations } from "../schema";
 
 const INVITATION_TTL_DAYS = 14;
@@ -149,6 +153,10 @@ export async function attachUserToOrganization(
   }
 
   if (check.kind !== "bootstrap") return false;
+
+  // eligibility の確認と Better Auth による user 作成は別処理なので、
+  // その間に別の初回登録が進んでいないことをもう一度確かめる。
+  if (!(await isOnlyUser(db, userId))) return false;
 
   let organizationId = (await findFirstOrganization(db))?.id;
   if (!organizationId) {

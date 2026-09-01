@@ -97,6 +97,7 @@ npm run db:reset-auth     # ローカルのアカウントを全消去し、初�
 - **業務画面の loader / action は必ず `requireOrg(request)` を通す。** ここで返る `OrgContext` の組織スコープはログインユーザーの所属で確定する
 - 管理者限定の操作は `requireAdmin(request)`
 - **一般公開のサインアップは実装しない。** ユーザーは招待リンク経由でのみ増える。例外は初回セットアップ（ユーザーが1人もいないとき）だけ
+- 初回セットアップは `BOOTSTRAP_SECRET` の入力を必須にする。本番では Cloudflare のシークレット、開発では `.dev.vars` に設定する
 - `findMembershipForUser` は組織スコープを持たない唯一のクエリ。ログインユーザーの所属組織を決める処理なので原理的に絞れない。**この例外を他へ広げないこと**
 - `database/schema/auth.ts` のテーブル名・カラム名は Better Auth の既定。勝手に変えない
 - 本番では `BETTER_AUTH_SECRET` を Cloudflare のシークレットとして設定する（`npx wrangler secret put BETTER_AUTH_SECRET`）。開発は `.dev.vars`

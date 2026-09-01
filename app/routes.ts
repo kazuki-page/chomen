@@ -31,5 +31,4 @@ export default [
   route("forgot-password", "routes/forgot-password.tsx"),
   route("reset-password", "routes/reset-password.tsx"),
   route("logout", "routes/logout.ts"),
-  route("api/auth/*", "routes/auth-api.ts"),
 ] satisfies RouteConfig;

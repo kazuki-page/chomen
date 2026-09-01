@@ -29,6 +29,23 @@ export async function loader({ request }: Route.LoaderArgs) {
 /** 招待トークンの総当たり対策。同一IPから 5 分に 10 回まで */
 const SIGNUP_LIMIT = { max: 10, windowSeconds: 300 };
 
+async function matchesBootstrapSecret(received: string): Promise<boolean> {
+  const configured = (env as typeof env & { BOOTSTRAP_SECRET?: string }).BOOTSTRAP_SECRET ?? "";
+  if (!configured || !received) return false;
+
+  const encoder = new TextEncoder();
+  const [configuredHash, receivedHash] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(configured)),
+    crypto.subtle.digest("SHA-256", encoder.encode(received)),
+  ]);
+
+  const left = new Uint8Array(configuredHash);
+  const right = new Uint8Array(receivedHash);
+  let difference = 0;
+  for (let i = 0; i < left.length; i++) difference |= left[i]! ^ right[i]!;
+  return difference === 0;
+}
+
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
   const token = (form.get("token") as string | null) || null;
@@ -53,6 +70,12 @@ export async function action({ request }: Route.ActionArgs) {
   if (check.kind === "invited" && email !== check.email.trim().toLowerCase()) {
     return { error: "招待されたメールアドレスで登録してください" };
   }
+  if (
+    check.kind === "bootstrap" &&
+    !(await matchesBootstrapSecret(String(form.get("bootstrapSecret") ?? "")))
+  ) {
+    return { error: "初回セットアップキーが違います" };
+  }
 
   const response = await getAuth(request).api.signUpEmail({
     body: {
@@ -75,7 +98,12 @@ export async function action({ request }: Route.ActionArgs) {
   if (!(await attachUserToOrganization(db, created.user.id, check))) {
     // 認証用の user は既に作られているが、組織への所属は一切付与しない。
     // 招待が同時に使われた・取り消された場合に、ログイン状態を渡さない。
-    return { error: "この招待リンクは使用済みか有効期限が切れています" };
+    return {
+      error:
+        check.kind === "bootstrap"
+          ? "初回セットアップを完了できませんでした。もう一度やり直してください"
+          : "この招待リンクは使用済みか有効期限が切れています",
+    };
   }
 
   return redirect("/", { headers: cookieHeaders(response) });
@@ -117,6 +145,18 @@ export default function Signup({ loaderData, actionData }: Route.ComponentProps)
 
       <Form method="post" className="mt-6 space-y-4">
         <input type="hidden" name="token" value={token ?? ""} />
+        {kind === "bootstrap" && (
+          <label className="block">
+            <span className="text-base font-medium text-slate-700">初回セットアップキー</span>
+            <input
+              type="password"
+              name="bootstrapSecret"
+              required
+              autoComplete="off"
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
+            />
+          </label>
+        )}
         <label className="block">
           <span className="text-base font-medium text-slate-700">お名前</span>
           <input

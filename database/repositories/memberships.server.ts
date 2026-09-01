@@ -78,6 +78,17 @@ export async function hasNoUsers(db: Database): Promise<boolean> {
   return rows.length === 0;
 }
 
+/**
+ * 初回登録で作られた user が、本当に唯一のユーザーかを確認する。
+ *
+ * サインアップ可否の事前確認後に別リクエストが user を作る競合を検出し、
+ * 複数の初回管理者が生まれることを防ぐ。
+ */
+export async function isOnlyUser(db: Database, userId: string): Promise<boolean> {
+  const rows = await db.select({ id: user.id }).from(user).limit(2);
+  return rows.length === 1 && rows[0]?.id === userId;
+}
+
 /** 初回セットアップ時に使う既存の組織。シードのデモ組織を想定 */
 export async function findFirstOrganization(
   db: Database,
