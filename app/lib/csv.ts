@@ -13,7 +13,10 @@ export function toCsv(rows: (string | number | null | undefined)[][]): string {
 
 function escapeCell(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return "";
-  const text = String(value);
+  let text = String(value);
+  // Excel 等は先頭が =, +, -, @ のセルを式として評価する。入力値を
+  // 書き出す CSV では、数式にせず文字列として開かせる。
+  if (/^[=+\-@]/.test(text)) text = `'${text}`;
   // 区切り文字・引用符・改行を含む場合だけ引用する
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }

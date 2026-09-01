@@ -102,6 +102,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const data = useRouteLoaderData<typeof loader>("root");
   const origin = data?.origin ?? DEMO_ORIGIN;
   const og = data?.isDemo ?? true ? OG.demo : OG.app;
+  const cspNonce = data?.cspNonce;
 
   return (
     <html lang="ja">
@@ -136,10 +137,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body className="bg-sky-50 text-slate-900">
         {children}
-        <ScrollRestoration />
-        <Scripts />
-        <script dangerouslySetInnerHTML={{ __html: BLOCK_ENTER_SUBMIT }} />
-        <script dangerouslySetInnerHTML={{ __html: REGISTER_SW }} />
+        <ScrollRestoration nonce={cspNonce} />
+        <Scripts nonce={cspNonce} />
+        <script nonce={cspNonce} dangerouslySetInnerHTML={{ __html: BLOCK_ENTER_SUBMIT }} />
+        <script nonce={cspNonce} dangerouslySetInnerHTML={{ __html: REGISTER_SW }} />
       </body>
     </html>
   );
@@ -152,6 +153,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     isDemo: env.DEMO_MODE === "true",
     // OGP の絶対URLを組み立てるのに使う。環境ごとにドメインが違う
     origin: new URL(request.url).origin,
+    cspNonce: request.headers.get("x-chomen-csp-nonce") ?? undefined,
   };
 }
 

@@ -32,6 +32,7 @@ const SIGNUP_LIMIT = { max: 10, windowSeconds: 300 };
 export async function action({ request }: Route.ActionArgs) {
   const form = await request.formData();
   const token = (form.get("token") as string | null) || null;
+  const email = String(form.get("email") ?? "").trim().toLowerCase();
 
   const db = createDatabase(env.DB);
 
@@ -49,11 +50,14 @@ export async function action({ request }: Route.ActionArgs) {
   if (check.kind === "invalid") {
     return { error: check.reason };
   }
+  if (check.kind === "invited" && email !== check.email.trim().toLowerCase()) {
+    return { error: "招待されたメールアドレスで登録してください" };
+  }
 
   const response = await getAuth(request).api.signUpEmail({
     body: {
       name: String(form.get("name") ?? ""),
-      email: String(form.get("email") ?? ""),
+      email,
       password: String(form.get("password") ?? ""),
     },
     asResponse: true,
@@ -68,7 +72,11 @@ export async function action({ request }: Route.ActionArgs) {
     return { error: "登録できませんでした" };
   }
 
-  await attachUserToOrganization(db, created.user.id, check);
+  if (!(await attachUserToOrganization(db, created.user.id, check))) {
+    // 認証用の user は既に作られているが、組織への所属は一切付与しない。
+    // 招待が同時に使われた・取り消された場合に、ログイン状態を渡さない。
+    return { error: "この招待リンクは使用済みか有効期限が切れています" };
+  }
 
   return redirect("/", { headers: cookieHeaders(response) });
 }
@@ -125,6 +133,7 @@ export default function Signup({ loaderData, actionData }: Route.ComponentProps)
             name="email"
             required
             defaultValue={email}
+            readOnly={kind === "invited"}
             autoComplete="username"
             className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-3 text-lg"
           />

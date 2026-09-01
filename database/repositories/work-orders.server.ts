@@ -127,7 +127,10 @@ export async function getWorkOrder(
       unitCode: units.code,
     })
     .from(workOrders)
-    .leftJoin(units, eq(units.id, workOrders.unitId))
+    .leftJoin(
+      units,
+      and(eq(units.id, workOrders.unitId), eq(units.organizationId, ctx.organizationId)),
+    )
     .where(and(eq(workOrders.organizationId, ctx.organizationId), eq(workOrders.id, workOrderId)));
 
   if (!row) return null;
@@ -145,6 +148,7 @@ export async function createWorkOrder(
   ctx: OrgContext,
   input: WorkOrderInput,
 ): Promise<string> {
+  await assertUnitInOrganization(ctx, input.unitId);
   const id = crypto.randomUUID();
   await ctx.db.insert(workOrders).values({
     id,
@@ -159,10 +163,24 @@ export async function updateWorkOrder(
   workOrderId: string,
   input: WorkOrderInput,
 ): Promise<void> {
+  await assertUnitInOrganization(ctx, input.unitId);
   await ctx.db
     .update(workOrders)
     .set({ ...normalize(input), updatedAt: new Date() })
     .where(and(eq(workOrders.organizationId, ctx.organizationId), eq(workOrders.id, workOrderId)));
+}
+
+/** 外部から送られた Unit ID を、そのまま別組織のレコードに結び付けない。 */
+async function assertUnitInOrganization(ctx: OrgContext, unitId: string | null): Promise<void> {
+  if (unitId === null) return;
+
+  const [unit] = await ctx.db
+    .select({ id: units.id })
+    .from(units)
+    .where(and(eq(units.id, unitId), eq(units.organizationId, ctx.organizationId)))
+    .limit(1);
+
+  if (!unit) throw new Response("部屋が見つかりません", { status: 400 });
 }
 
 /** 完了日はステータスから導く。人に二度入力させない */
@@ -198,7 +216,10 @@ function selectList(ctx: OrgContext) {
       unitCode: units.code,
     })
     .from(workOrders)
-    .leftJoin(units, eq(units.id, workOrders.unitId));
+    .leftJoin(
+      units,
+      and(eq(units.id, workOrders.unitId), eq(units.organizationId, ctx.organizationId)),
+    );
 }
 
 type ListRow = {

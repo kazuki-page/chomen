@@ -22,10 +22,8 @@ export async function sendMail(input: {
 
   // 未設定でも動くようにしておく（DNS の設定が済むまでは開発中も本番も送れない）
   if (!apiKey || !from) {
-    console.warn("[mail] 未送信: RESEND_API_KEY / MAIL_FROM が未設定", {
-      to: input.to,
-      subject: input.subject,
-    });
+    // パスワード再設定の宛先は個人情報なので、運用ログには残さない。
+    console.warn("[mail] 未送信: RESEND_API_KEY / MAIL_FROM が未設定");
     return { sent: false, reason: "メールの設定がまだです" };
   }
 

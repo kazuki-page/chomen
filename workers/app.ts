@@ -10,13 +10,12 @@ const requestHandler = createRequestHandler(
 /**
  * すべてのレスポンスに付けるセキュリティヘッダ。
  *
- * script-src は指定していない。React Router がハイドレーション用の
- * インラインスクリプトを出すため nonce を通す仕組みが必要になる。
- * ここでは nonce 無しで確実に効くものだけを入れている。
+ * CSP の nonce は fetch ごとに生成し、root route 経由で React Router の
+ * スクリプトにも渡す。これによりハイドレーションを壊さず、注入された
+ * スクリプトの実行を防ぐ。
  */
 const SECURITY_HEADERS: Record<string, string> = {
   // クリックジャッキング対策。他サイトの iframe に埋め込ませない
-  "Content-Security-Policy": "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
   "X-Frame-Options": "DENY",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
@@ -25,6 +24,23 @@ const SECURITY_HEADERS: Record<string, string> = {
   // 次回以降はブラウザ側で HTTPS に固定させる（1年）
   "Strict-Transport-Security": "max-age=31536000",
 };
+
+const CSP_NONCE_HEADER = "x-chomen-csp-nonce";
+
+function contentSecurityPolicy(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "connect-src 'self'",
+    "font-src 'self' data:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join("; ");
+}
 
 export default {
   async fetch(request, env) {
@@ -37,13 +53,17 @@ export default {
       return Response.redirect(url.toString(), 301);
     }
 
-    const response = await requestHandler(request);
+    const nonce = crypto.randomUUID();
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(CSP_NONCE_HEADER, nonce);
+    const response = await requestHandler(new Request(request, { headers: requestHeaders }));
 
     // Set-Cookie を壊さないよう、既存ヘッダを引き継いだ上で追加する
     const headers = new Headers(response.headers);
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
       headers.set(name, value);
     }
+    headers.set("Content-Security-Policy", contentSecurityPolicy(nonce));
 
     // 本番は検索結果に出さない。ログインの向こう側は元々見えないが、
     // ログイン画面が拾われるのも避けたい。

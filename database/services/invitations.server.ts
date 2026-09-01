@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 
 import type { Database, OrgContext } from "../context.server";
 import type { Role } from "../repositories/memberships.server";
@@ -121,21 +121,34 @@ export async function attachUserToOrganization(
   db: Database,
   userId: string,
   check: InvitationCheck,
-): Promise<void> {
+): Promise<boolean> {
   if (check.kind === "invited") {
+    const acceptedAt = new Date();
+    // 招待の使用済み化は条件付き更新にする。事前の確認だけでは、同じリンクを
+    // 同時に送信した複数リクエストが全て「未使用」と判断してしまう。
+    const consumed = await db
+      .update(invitations)
+      .set({ acceptedAt })
+      .where(
+        and(
+          eq(invitations.id, check.invitationId),
+          isNull(invitations.acceptedAt),
+          gt(invitations.expiresAt, acceptedAt),
+        ),
+      )
+      .returning({ id: invitations.id });
+
+    if (consumed.length !== 1) return false;
+
     await db.insert(memberships).values({
       organizationId: check.organizationId,
       userId,
       role: check.role,
     });
-    await db
-      .update(invitations)
-      .set({ acceptedAt: new Date() })
-      .where(eq(invitations.id, check.invitationId));
-    return;
+    return true;
   }
 
-  if (check.kind !== "bootstrap") return;
+  if (check.kind !== "bootstrap") return false;
 
   let organizationId = (await findFirstOrganization(db))?.id;
   if (!organizationId) {
@@ -144,4 +157,5 @@ export async function attachUserToOrganization(
   }
 
   await db.insert(memberships).values({ organizationId, userId, role: "admin" });
+  return true;
 }
