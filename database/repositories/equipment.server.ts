@@ -62,13 +62,20 @@ export async function getEquipmentMatrix(ctx: OrgContext): Promise<EquipmentMatr
       note: equipmentRecords.note,
     })
     .from(equipmentRecords)
-    .innerJoin(units, eq(units.id, equipmentRecords.unitId))
+    .innerJoin(
+      units,
+      and(
+        eq(units.id, equipmentRecords.unitId),
+        eq(units.organizationId, ctx.organizationId),
+      ),
+    )
     .where(
       and(
         eq(equipmentRecords.organizationId, ctx.organizationId),
         sql`${equipmentRecords.performedOn} = (
           select max(e2.performed_on) from equipment_records e2
           where e2.unit_id = ${equipmentRecords.unitId}
+            and e2.organization_id = ${ctx.organizationId}
             and e2.category = ${equipmentRecords.category}
         )`,
       ),
@@ -100,7 +107,13 @@ export async function listEquipmentForUnit(
       note: equipmentRecords.note,
     })
     .from(equipmentRecords)
-    .innerJoin(units, eq(units.id, equipmentRecords.unitId))
+    .innerJoin(
+      units,
+      and(
+        eq(units.id, equipmentRecords.unitId),
+        eq(units.organizationId, ctx.organizationId),
+      ),
+    )
     .where(
       and(
         eq(equipmentRecords.organizationId, ctx.organizationId),
@@ -127,7 +140,13 @@ export async function getEquipmentRecord(
       note: equipmentRecords.note,
     })
     .from(equipmentRecords)
-    .innerJoin(units, eq(units.id, equipmentRecords.unitId))
+    .innerJoin(
+      units,
+      and(
+        eq(units.id, equipmentRecords.unitId),
+        eq(units.organizationId, ctx.organizationId),
+      ),
+    )
     .where(
       and(
         eq(equipmentRecords.organizationId, ctx.organizationId),
@@ -141,6 +160,8 @@ export async function createEquipmentRecord(
   ctx: OrgContext,
   input: EquipmentInput,
 ): Promise<string> {
+  await requireEquipmentUnit(ctx, input.unitId);
+
   const id = crypto.randomUUID();
   await ctx.db
     .insert(equipmentRecords)
@@ -152,16 +173,24 @@ export async function updateEquipmentRecord(
   ctx: OrgContext,
   recordId: string,
   input: EquipmentInput,
+  updatedAt: Date,
 ): Promise<void> {
-  await ctx.db
+  await requireEquipmentUnit(ctx, input.unitId);
+
+  const updated = await ctx.db
     .update(equipmentRecords)
-    .set({ ...normalize(input), updatedAt: new Date() })
+    .set({ ...normalize(input), updatedAt })
     .where(
       and(
         eq(equipmentRecords.organizationId, ctx.organizationId),
         eq(equipmentRecords.id, recordId),
       ),
-    );
+    )
+    .returning({ id: equipmentRecords.id });
+
+  if (updated.length !== 1) {
+    throw new Response("設備の記録が見つかりません", { status: 404 });
+  }
 }
 
 export async function deleteEquipmentRecord(
@@ -190,4 +219,22 @@ function normalize(input: EquipmentInput) {
     cost: input.cost,
     note: input.note,
   };
+}
+
+/** POSTされた unitId を信用せず、現在の組織の部屋であることを確認する。 */
+async function requireEquipmentUnit(ctx: OrgContext, unitId: string): Promise<void> {
+  const [unit] = await ctx.db
+    .select({ id: units.id })
+    .from(units)
+    .where(
+      and(
+        eq(units.organizationId, ctx.organizationId),
+        eq(units.id, unitId),
+        eq(units.type, "room"),
+      ),
+    );
+
+  if (!unit) {
+    throw new Response("部屋が見つかりません", { status: 404 });
+  }
 }
