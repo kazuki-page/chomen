@@ -87,7 +87,8 @@ npm run deploy             # 本番へ
 ```
 
 `main` へpushすると、GitHub Actionsがテスト・型検査・ビルドを実行し、
-成功した場合だけデモD1の移行とデモWorkerのデプロイを行う。
+成功した場合だけデモD1の移行とデモWorkerのデプロイを行う。デモの疎通成功後、
+GitHub上で人が承認した場合だけ本番D1と本番Workerへ進む。
 必要なSecretsや障害時の扱いは[デプロイ運用](docs/deployment.md)を参照。
 
 デモのデータは cron（`wrangler.jsonc` の `env.demo`）で毎日リセットされる。
