@@ -4,6 +4,7 @@ import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import { addYears, todayInTokyo, type IsoDate } from "~/lib/date";
 import type { OrgContext } from "../context.server";
 import { templateFor, type ProcedureType } from "../procedure-templates";
+import { leaseExists } from "../repositories/procedures.server";
 import {
   leases,
   procedureItems,
@@ -432,6 +433,10 @@ export async function startProcedure(
   ctx: OrgContext,
   input: { leaseId: string; type: ProcedureType; scheduledOn: IsoDate },
 ): Promise<string> {
+  if (!(await leaseExists(ctx, input.leaseId))) {
+    throw new Error("契約が見つかりません");
+  }
+
   const procedureId = crypto.randomUUID();
   const writes = buildProcedureInserts(
     ctx,

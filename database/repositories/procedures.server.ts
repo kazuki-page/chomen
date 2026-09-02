@@ -29,6 +29,24 @@ export type ProcedureDetail = ProcedureSummary & {
   }[];
 };
 
+/** 手続き開始前に、契約が現在の組織へ属することを確認する。 */
+export async function leaseExists(
+  ctx: OrgContext,
+  leaseId: string,
+): Promise<boolean> {
+  const [row] = await ctx.db
+    .select({ id: leases.id })
+    .from(leases)
+    .where(
+      and(
+        eq(leases.organizationId, ctx.organizationId),
+        eq(leases.id, leaseId),
+      ),
+    )
+    .limit(1);
+  return row !== undefined;
+}
+
 /**
  * 未完了の手続き。ホーム画面の「やること」に使う。
  *
