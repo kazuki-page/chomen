@@ -6,6 +6,7 @@
     "build": "react-router build",
     "dev": "react-router dev",
     "dev:demo": "CLOUDFLARE_ENV=demo react-router dev",
+    "test": "vitest run --config vitest.config.ts",
     "typecheck": "wrangler types && react-router typegen && tsc -b",
     "deploy": "npm run build && wrangler deploy",
     "deploy:demo": "CLOUDFLARE_ENV=demo npm run build && CLOUDFLARE_ENV=demo wrangler deploy",
@@ -39,6 +40,7 @@
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
     "vite": "^8.0.3",
+    "vitest": "^4.1.11",
     "wrangler": "^4.118.0"
   }
 }
