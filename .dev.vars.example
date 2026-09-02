@@ -1,3 +1,6 @@
+# このファイルはローカル設定の雛形に加え、CIの `wrangler types` が
+# Secret名を型へ反映するためにも使う。Secretを追加したら名前をここにも追加する。
+# 実際のSecret値は絶対に記載しない。
 BETTER_AUTH_SECRET="ここに openssl rand -base64 32 の出力を入れる"
 BOOTSTRAP_SECRET="初回セットアップ専用の十分に長いランダム文字列"
 

@@ -7,11 +7,11 @@
     "dev": "react-router dev",
     "dev:demo": "CLOUDFLARE_ENV=demo react-router dev",
     "test": "vitest run --config vitest.config.ts",
-    "typecheck": "wrangler types && react-router typegen && tsc -b",
+    "typecheck": "wrangler types --env-file .dev.vars.example && react-router typegen && tsc -b",
     "deploy": "npm run build && wrangler deploy",
     "deploy:demo": "CLOUDFLARE_ENV=demo npm run build && CLOUDFLARE_ENV=demo wrangler deploy",
     "preview": "npm run build && vite preview",
-    "cf-typegen": "wrangler types",
+    "cf-typegen": "wrangler types --env-file .dev.vars.example",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "wrangler d1 migrations apply oyasan-app-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply oyasan-app-db --remote",
@@ -19,7 +19,7 @@
     "db:seed": "node scripts/generate-seed.mjs > database/seed.generated.sql && wrangler d1 execute oyasan-app-db --local --file database/seed.generated.sql",
     "db:seed:demo": "node scripts/generate-seed.mjs --now > database/seed.generated.sql && wrangler d1 execute chomen-demo-db --remote --env demo --file database/seed.generated.sql",
     "db:reset-auth": "wrangler d1 execute oyasan-app-db --local --command \"DELETE FROM session; DELETE FROM account; DELETE FROM memberships; DELETE FROM invitations; DELETE FROM user;\"",
-    "postinstall": "wrangler types"
+    "postinstall": "wrangler types --env-file .dev.vars.example"
   },
   "dependencies": {
     "better-auth": "^1.6.25",
