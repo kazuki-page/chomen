@@ -57,6 +57,7 @@ npm run dev
 | コマンド | 内容 |
 |---|---|
 | `npm run dev` | 開発サーバー |
+| `npm test` | 純粋関数とローカルD1の自動テスト |
 | `npm run build` | ビルド |
 | `npm run typecheck` | 型チェック |
 | `npm run deploy:demo` | デモ環境へデプロイ |
@@ -84,6 +85,10 @@ npm run deploy:demo        # デモで確認してから
 npm run db:migrate:remote  # 本番の D1 に移行を適用
 npm run deploy             # 本番へ
 ```
+
+`main` へpushすると、GitHub Actionsがテスト・型検査・ビルドを実行し、
+成功した場合だけデモD1の移行とデモWorkerのデプロイを行う。
+必要なSecretsや障害時の扱いは[デプロイ運用](docs/deployment.md)を参照。
 
 デモのデータは cron（`wrangler.jsonc` の `env.demo`）で毎日リセットされる。
 実体は `workers/app.ts` の `scheduled` で、消すのは業務データだけ。
