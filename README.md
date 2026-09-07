@@ -118,7 +118,7 @@ Phase 2 まで実装済み。本番環境で稼働しており、Notion から�
 
 ## セットアップ
 
-Node 22.18 以上（シード生成が TypeScript を直接読むため）。
+Node 24 を推奨（CI と同じメジャーバージョン。シード生成が TypeScript を直接読むため、最低 22.18）。
 
 ```bash
 npm install
@@ -127,6 +127,33 @@ npm run db:migrate               # ローカル D1 にスキーマを適用
 npm run db:seed                  # 架空のデモデータを投入
 npm run dev
 ```
+
+### Mac / Windows 間で開発環境を移すとき
+
+`node_modules` には OS 固有の実行ファイルが入るため、移行先で `npm ci` を実行して入れ直す。
+`.dev.vars` と `.wrangler/state` は既存のものを保持する。DB が残っている場合は
+`npm run db:seed` を実行しない（既存の業務データを入れ替えるため）。
+
+```powershell
+npm ci
+npm run db:migrate
+npm run typecheck
+npm test
+npm run build
+npm run dev
+```
+
+Windows の PowerShell で設定ファイルを新規作成する場合は
+`Copy-Item .dev.vars.example .dev.vars` を使う（既存ファイルは上書きしない）。
+`BOOTSTRAP_SECRET` が古い設定に無い場合は、十分に長いランダム値を追加する。
+生成には `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"` を使える。
+
+Node.js のインストール後も `npm` が見つからなければ、ターミナルと Codex を再起動して PATH を読み直す。
+PowerShell が `npm.ps1` の実行を拒否するときは、上記の `npm` を `npm.cmd` に置き換える。
+Mac からコピーした Git リポジトリで実行権限だけの差分が出る場合は
+`git config core.filemode false` をこのリポジトリで実行する。
+`npm run dev:demo` / `npm run deploy:demo` は両 OS で利用できる。
+OG画像の再生成用 `scripts/make-og.sh` は macOS 専用だが、生成済み画像を含むため通常の開発には不要。
 
 初回は `/signup` から、`.dev.vars` の `BOOTSTRAP_SECRET` を使って
 最初のアカウント（管理者）を作成する。
