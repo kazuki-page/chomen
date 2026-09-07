@@ -63,6 +63,14 @@ npm run dev
 | `npm run deploy:demo` | デモ環境へデプロイ |
 | `npm run deploy` | 本番へデプロイ |
 
+### 開発依存関係の脆弱性対策
+
+`drizzle-kit@0.31.10` が間接的に使う `@esbuild-kit/core-utils` の esbuild は、
+`package.json` の `overrides` で `0.25.12` に固定している。
+[GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99) の対策であり、
+他の依存関係の esbuild は上書きしない。上流で古い依存が解消されたら、この指定を取り除いて
+`npm audit`、`npm run db:generate`、`npm test`、`npm run typecheck`、`npm run build` を再確認する。
+
 ### 環境
 
 本番とデモは**同じコードを配るだけ**で、リポジトリもブランチも1つ。
