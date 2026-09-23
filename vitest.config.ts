@@ -10,6 +10,10 @@ import { defineConfig } from "vitest/config";
 // Node.js 上の純粋関数テストと Workers 上の D1 テストを別プロジェクトにする。
 export default defineConfig(async () => {
   const appPath = fileURLToPath(new URL("./app", import.meta.url));
+  const alias = {
+    "~": appPath,
+    "@db": fileURLToPath(new URL("./database", import.meta.url)),
+  };
   const migrations = await readD1Migrations(
     fileURLToPath(new URL("./database/migrations", import.meta.url)),
   );
@@ -23,6 +27,9 @@ export default defineConfig(async () => {
     test: {
       projects: [
         {
+          resolve: {
+            alias,
+          },
           test: {
             name: "unit",
             include: ["app/**/*.test.ts"],
@@ -30,7 +37,7 @@ export default defineConfig(async () => {
         },
         {
           resolve: {
-            alias: { "~": appPath },
+            alias,
           },
           plugins: [
             cloudflareTest({

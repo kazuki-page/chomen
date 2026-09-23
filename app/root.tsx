@@ -175,10 +175,9 @@ export default function App({ loaderData }: Route.ComponentProps) {
       {isDemo && <DemoBanner />}
       <header className="bg-sky-600 text-white">
         {/*
-          左右の余白を詰めて、狭い画面でも6つが1行に収まるようにしている。
-          必要な幅は 332px なので、いまどきの Android（360px 以上）なら折り返さない。
+          タブを増やしても押しやすい大きさを保ち、狭い画面では折り返す。
         */}
-        <nav className="mx-auto flex max-w-4xl gap-1 px-4 py-2 sm:gap-2">
+        <nav className="mx-auto flex max-w-4xl flex-wrap gap-1 px-4 py-2 sm:gap-2">
           {/*
             ホームだけアイコン。狭い画面では文字が縦に折り返されるため、
             3文字の「ホーム」がヘッダーの高さを決めてしまっていた。
@@ -188,6 +187,7 @@ export default function App({ loaderData }: Route.ComponentProps) {
             <HomeIcon />
           </NavItem>
           <NavItem to="/units">部屋</NavItem>
+          <NavItem to="/renewals">更新</NavItem>
           <NavItem to="/equipment">設備</NavItem>
           <NavItem to="/work-orders">修繕</NavItem>
           {/* 他のタブが2文字なので幅を揃える。ページ側の見出しは「書き出し」のまま */}

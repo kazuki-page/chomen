@@ -3,6 +3,7 @@ import { type RouteConfig, index, route } from "@react-router/dev/routes";
 export default [
   index("routes/home.tsx"),
   route("units", "routes/units.tsx"),
+  route("renewals", "routes/renewals.tsx"),
   route("units/new", "routes/unit-new.tsx"),
   route("units/import", "routes/lease-import.tsx"),
   route("units/:unitId", "routes/unit.tsx"),
@@ -22,6 +23,7 @@ export default [
   route("export", "routes/export.tsx"),
   route("export/:kind.csv", "routes/export-csv.ts"),
   route("print/occupancy", "routes/print-occupancy.tsx"),
+  route("print/renewals", "routes/print-renewals.tsx"),
   route("print/ledger", "routes/print-ledger.tsx"),
   route("print/equipment", "routes/print-equipment.tsx"),
 

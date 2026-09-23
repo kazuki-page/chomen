@@ -24,6 +24,7 @@ export default function Export() {
           <strong>「PDFとして保存」</strong>を選べば PDF になります。
         </p>
         <ul className="mt-3 space-y-3">
+          <PrintLink to="/print/renewals" title="更新一覧" description="更新日順に、部屋・名前・更新前の家賃・過去の値上げ履歴" />
           <PrintLink
             to="/print/occupancy"
             title="入居状況一覧"
@@ -50,6 +51,7 @@ export default function Export() {
         </p>
         <ul className="mt-3 space-y-3">
           <CsvLink to="/export/leases.csv" title="入居者・契約" description="終了した契約も含みます" />
+          <CsvLink to="/export/renewals.csv" title="更新" description="未完了の更新と、更新前の家賃・過去の値上げ履歴" />
           <CsvLink to="/export/equipment.csv" title="設備の記録" description="履歴すべて" />
           <CsvLink to="/export/work-orders.csv" title="修繕の履歴" description="全案件" />
         </ul>

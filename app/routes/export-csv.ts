@@ -4,6 +4,8 @@ import {
   exportWorkOrders,
 } from "@db/repositories/export.server";
 import { requireOrg } from "~/lib/auth.server";
+import { listRenewals } from "@db/repositories/renewals.server";
+import { formatRentIncreases } from "~/lib/renewals";
 import {
   EQUIPMENT_CATEGORY_LABELS,
   HANDLER_LABELS,
@@ -26,6 +28,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const today = todayInTokyo();
 
   switch (params.kind) {
+    case "renewals": {
+      const rows = await listRenewals(ctx);
+      return csvResponse(`renewals-${today}.csv`, [
+        ["更新日", "部屋", "名前", "更新前の家賃", "過去の値上げ履歴（年・増額・改定後家賃）"],
+        ...rows.map((r) => [r.renewalDate ?? "未定", r.unitCode, r.tenantName, r.rentBefore ?? "不明", formatRentIncreases(r.increases) || (r.rentBefore === null ? "確認できる記録なし" : "値上げの記録なし")]),
+      ]);
+    }
     case "leases": {
       const rows = await exportLeases(ctx, { asOf: today });
       return csvResponse(`leases-${today}.csv`, [
