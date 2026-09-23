@@ -335,6 +335,7 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
       {leaseHistory.length > 0 && (
         <Section title="入居の履歴">
           <LeaseHistory rows={leaseHistory} />
+          <Link to="/renewals/history-repair" className="mt-2 inline-flex min-h-12 items-center text-base text-sky-800 underline underline-offset-4">別契約になっている更新履歴を確認・修正する</Link>
         </Section>
       )}
 

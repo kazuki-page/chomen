@@ -25,6 +25,10 @@ it("一覧と印刷に必要な項目・増額と年・手続きへのリンク�
   }
   expect(list).toContain('href="/procedures/p"');
   expect(list).toContain('href="/print/renewals"');
+  expect(list).toContain('<table');
+  expect(list).toContain('scope="col"');
+  expect(list).toContain('scope="row"');
+  expect(list).toContain('tabindex="0"');
   expect(print).toContain("印刷する");
 });
 

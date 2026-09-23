@@ -82,6 +82,10 @@ export default function LeaseImport({ actionData }: Route.ComponentProps) {
       )}
 
       <Form method="post" className="mt-6">
+        <p className="mb-3 rounded-lg bg-amber-50 p-3 text-base text-amber-900">
+          1行を1つの契約として登録します。同じ入居者の更新ごとに行を分けないでください。
+          すでに分けて登録した場合は、更新一覧の「履歴の確認・修正」から確認できます。
+        </p>
         <textarea
           name="text"
           rows={8}

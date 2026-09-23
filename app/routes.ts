@@ -4,6 +4,7 @@ export default [
   index("routes/home.tsx"),
   route("units", "routes/units.tsx"),
   route("renewals", "routes/renewals.tsx"),
+  route("renewals/history-repair", "routes/renewal-history-repair.tsx"),
   route("units/new", "routes/unit-new.tsx"),
   route("units/import", "routes/lease-import.tsx"),
   route("units/:unitId", "routes/unit.tsx"),
