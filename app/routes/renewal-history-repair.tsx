@@ -30,6 +30,7 @@ export default function RenewalHistoryRepair({ loaderData: { candidates, repaire
     <p className="mt-3 text-base">同じ部屋・同じ氏名の契約が分かれている候補です。別人や、退居後の再入居はまとめないでください。</p>
     <p className="mt-2 text-base">修正すると家賃履歴を1つの契約にまとめ、現在の契約の初回家賃を「更新」に直します。過去の契約の行はなくなり、契約開始日は過去の契約日に変わります。金額・日付・次回更新日は残ります。</p>
     <p className="mt-2 text-base font-bold">この操作は画面から元に戻せません。2つの契約を確認してから実行してください。</p>
+    <p className="mt-2 text-base">過去の家賃が不明でもまとめられます。不明な金額は補完せず、比較できない値上げ額は表示しません。</p>
     {repaired && <p role="status" className="mt-4 rounded-lg bg-emerald-50 p-4 text-emerald-900">履歴をまとめました。さらに古い候補があれば続けて表示しています。</p>}
     {actionData?.error && <p role="alert" className="mt-4 rounded-lg bg-rose-50 p-4 text-rose-900">{actionData.error}</p>}
     <h2 className="mt-6 text-xl font-bold">確認候補 {candidates.length}件</h2>

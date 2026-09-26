@@ -13,17 +13,31 @@ beforeEach(async () => {
   await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
 });
 
-async function seed() {
+async function seed(sourceRent: number | null = 70000, targetRent: number | null = 72000) {
   const ctx = createOrgContext(env.DB, "repair-org");
   await ctx.db.insert(organizations).values({ id: ctx.organizationId, name: "架空組織" });
   await ctx.db.insert(buildings).values({ id: "building", organizationId: ctx.organizationId, name: "架空建物" });
   await ctx.db.insert(units).values({ id: "unit", organizationId: ctx.organizationId, buildingId: "building", type: "room", code: "999" });
   const base = { unitId: "unit", tenantName: "架空入居者", birthYear: 1980 };
-  const source = await registerPastLease(ctx, { ...base, contractDate: "2020-03-01", rent: 70000, endedOn: "2022-02-28" });
-  const target = await registerExistingLease(ctx, { ...base, contractDate: "2022-03-01", rent: 72000, nextRenewalDate: "2028-03-01" });
+  const source = await registerPastLease(ctx, { ...base, contractDate: "2020-03-01", rent: sourceRent, endedOn: "2022-02-28" });
+  const target = await registerExistingLease(ctx, { ...base, contractDate: "2022-03-01", rent: targetRent, nextRenewalDate: "2028-03-01" });
   const input = { unitId: "unit", sourceLeaseId: source.leaseId, targetLeaseId: target.leaseId, now: new Date("2026-09-23T00:00:00Z") };
   return { ctx, input };
 }
+
+it.each([72000, null])("過去の家賃が未登録でも統合し、不明な金額を作らない（現在家賃=%s）", async (targetRent) => {
+  const { ctx, input } = await seed(null, targetRent);
+  expect((await listRenewalRepairCandidates(ctx))[0].source.rent).toBeNull();
+  const before = await ctx.db.select().from(procedures);
+  expect(await repairRenewalHistory(ctx, input)).toEqual({ ok: true });
+  const history = await ctx.db.select().from(rentRevisions);
+  expect(history).toHaveLength(targetRent === null ? 0 : 1);
+  if (targetRent !== null) expect(history[0]).toMatchObject({ amount: targetRent, effectiveFrom: "2022-03-01", reason: "renewal" });
+  expect((await listRenewals(ctx))[0]).toMatchObject({ rentBefore: targetRent, increases: [] });
+  expect((await ctx.db.select().from(leases))[0]).toMatchObject({ contractDate: "2020-03-01", nextRenewalDate: "2028-03-01" });
+  expect(await ctx.db.select().from(procedures)).toEqual(before);
+  expect(await listRenewalRepairCandidates(ctx)).toHaveLength(0);
+});
 
 it("別契約として取り込まれた更新をまとめ、値上げ履歴と事由を直し、現在の手続きを残す", async () => {
   const { ctx, input } = await seed();

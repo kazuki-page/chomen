@@ -62,8 +62,9 @@ export async function repairRenewalHistory(
   ]);
   if (sourceProcedures.length) return fail("過去の契約に手続きの記録があります。自動ではまとめられません。");
   const sourceRevisions = revisions.filter((r) => r.leaseId === source.id);
-  if (!sourceRevisions.length || sourceRevisions.some((r) => !r.confirmed || r.effectiveFrom < source.contractDate || r.effectiveFrom >= target.contractDate)) {
-    return fail("過去の契約の家賃が未登録・未確定、または現在の契約と日付が重なっています。");
+  // 家賃不明の過去契約は改定レコードを持たない。空のまま統合し、金額を推測しない。
+  if (sourceRevisions.some((r) => !r.confirmed || r.effectiveFrom < source.contractDate || r.effectiveFrom >= target.contractDate)) {
+    return fail("過去の契約の家賃が未確定、または契約日の範囲外です。");
   }
   if (revisions.some((r) => r.leaseId === target.id && r.effectiveFrom < target.contractDate)) {
     return fail("現在の契約に契約日前の家賃があります。履歴を確認してください。");
