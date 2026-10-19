@@ -4,7 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { addYears, type IsoDate } from "~/lib/date";
 import type { OrgContext } from "../context.server";
 import { leases, rentRevisions, tenants, units } from "../schema";
-import { startProcedure } from "./procedures.server";
+import { buildProcedureInserts, startProcedure } from "./procedures.server";
 
 export type RegisterPastLeaseInput = {
   unitId: string;
@@ -168,13 +168,9 @@ export async function registerExistingLease(
     );
   }
 
+  // 契約だけ保存され、更新手続きが欠落する状態を作らない。
+  writes.push(...buildProcedureInserts(ctx, leaseId, "renewal", nextRenewalDate));
   await ctx.db.batch(writes as [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]]);
-
-  await startProcedure(ctx, {
-    leaseId,
-    type: "renewal",
-    scheduledOn: nextRenewalDate,
-  });
 
   return { leaseId };
 }

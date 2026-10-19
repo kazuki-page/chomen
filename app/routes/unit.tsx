@@ -1,4 +1,5 @@
-import { Form, Link, redirect } from "react-router";
+import { Form, Link, redirect, useNavigation } from "react-router";
+import { getRenewalRecoveryCandidate } from "@db/repositories/renewal-recovery.server";
 
 import { listEquipmentForUnit } from "@db/repositories/equipment.server";
 import { listProceduresForUnit } from "@db/repositories/procedures.server";
@@ -15,7 +16,7 @@ import { MoveInFields } from "~/components/move-in-form";
 import { deleteLease } from "@db/services/lease-delete.server";
 import { updateLeaseDetails } from "@db/services/lease-edit.server";
 import { registerExistingLease, startMoveIn } from "@db/services/leases.server";
-import { startProcedure } from "@db/services/procedures.server";
+import { restoreMissingRenewal, startProcedure } from "@db/services/procedures.server";
 import { renameUnit } from "@db/services/units.server";
 import {
   EQUIPMENT_CATEGORIES,
@@ -44,13 +45,14 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const unit = await getUnitDetail(ctx, params.unitId, { asOf: today });
   if (!unit) throw new Response("見つかりません", { status: 404 });
 
-  const [procedures, workOrders, equipment, rentHistory, leaseHistory] =
+  const [procedures, workOrders, equipment, rentHistory, leaseHistory, recovery] =
     await Promise.all([
       listProceduresForUnit(ctx, unit.id),
       listWorkOrders(ctx, { now: new Date(), unitId: unit.id }),
       listEquipmentForUnit(ctx, unit.id),
       listRentHistoryForUnit(ctx, unit.id),
       listLeasesForUnit(ctx, unit.id),
+      getRenewalRecoveryCandidate(ctx, unit.id),
     ]);
 
   const params_ = new URL(request.url).searchParams;
@@ -67,6 +69,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     today,
     deleted,
     canceled,
+    recoveryDate: recovery?.scheduledOn ?? null,
   };
 }
 
@@ -74,6 +77,11 @@ export async function action({ request, params }: Route.ActionArgs) {
   const { ctx } = await requireOrg(request);
   const form = await request.formData();
   const intent = form.get("intent");
+
+  if (intent === "restore_renewal") {
+    await restoreMissingRenewal(ctx, params.unitId);
+    return redirect(`/units/${params.unitId}`);
+  }
 
   if (intent === "start_move_out") {
     const unit = await getUnitDetail(ctx, params.unitId, {
@@ -178,6 +186,8 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
+  const navigation = useNavigation();
+  const restoring = navigation.state !== "idle" && navigation.formData?.get("intent") === "restore_renewal";
   const {
     unit,
     procedures,
@@ -308,6 +318,17 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
       </details>
 
       <Section title="手続き">
+        {loaderData.recoveryDate && (
+          <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
+            <p className="text-lg">次回更新日（{formatJa(loaderData.recoveryDate)}）の更新手続きがありません。</p>
+            <Form method="post" className="mt-3">
+              <input type="hidden" name="intent" value="restore_renewal" />
+              <button type="submit" disabled={restoring} className="min-h-12 rounded-xl bg-sky-700 px-4 py-3 text-lg font-bold text-white disabled:opacity-60">
+                {restoring ? "作成しています…" : "更新手続きを作り直す"}
+              </button>
+            </Form>
+          </div>
+        )}
         {procedures.length === 0 ? (
           <Empty>手続きはありません</Empty>
         ) : (

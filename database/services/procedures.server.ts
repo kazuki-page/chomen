@@ -5,6 +5,7 @@ import { addYears, todayInTokyo, type IsoDate } from "~/lib/date";
 import type { OrgContext } from "../context.server";
 import { templateFor, type ProcedureType } from "../procedure-templates";
 import { leaseExists } from "../repositories/procedures.server";
+import { getRenewalRecoveryCandidate, guardRenewalRecovery } from "../repositories/renewal-recovery.server";
 import {
   leases,
   procedureItems,
@@ -460,7 +461,7 @@ export async function startProcedure(
 }
 
 /** 次の手続きとそのチェック項目を作る INSERT 群 */
-function buildProcedureInserts(
+export function buildProcedureInserts(
   ctx: OrgContext,
   leaseId: string,
   type: ProcedureType,
@@ -494,6 +495,16 @@ function buildProcedureInserts(
   });
 
   return writes;
+}
+
+/** 欠落した次回更新だけを復元する。家賃履歴や過去の完了記録は変更しない。 */
+export async function restoreMissingRenewal(ctx: OrgContext, unitId: string): Promise<void> {
+  const candidate = await getRenewalRecoveryCandidate(ctx, unitId);
+  if (!candidate) return;
+  await runBatch(ctx, [
+    guardRenewalRecovery(ctx, candidate),
+    ...buildProcedureInserts(ctx, candidate.leaseId, "renewal", candidate.scheduledOn),
+  ]);
 }
 
 async function upsertPendingRentRevision(
