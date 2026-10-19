@@ -1,5 +1,7 @@
 import { Form, Link, redirect, useNavigation } from "react-router";
 import { getRenewalRecoveryCandidate } from "@db/repositories/renewal-recovery.server";
+import { addPastRentRevision, deleteRentRevision } from "@db/repositories/rent-history.server";
+import { RentHistory } from "~/components/rent-history";
 
 import { listEquipmentForUnit } from "@db/repositories/equipment.server";
 import { listProceduresForUnit } from "@db/repositories/procedures.server";
@@ -8,7 +10,6 @@ import {
   listLeasesForUnit,
   listRentHistoryForUnit,
   updateListing,
-  type RentHistoryRow,
   type UnitLeaseRow,
 } from "@db/repositories/units.server";
 import { listWorkOrders } from "@db/repositories/work-orders.server";
@@ -58,6 +59,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   const params_ = new URL(request.url).searchParams;
   const deleted = params_.get("deleted");
   const canceled = params_.get("canceled") === "move_out";
+  const rentHistoryChange = params_.get("rentHistory");
 
   return {
     unit,
@@ -70,6 +72,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     deleted,
     canceled,
     recoveryDate: recovery?.scheduledOn ?? null,
+    rentHistoryChange: rentHistoryChange === "added" || rentHistoryChange === "deleted" ? rentHistoryChange : null,
   };
 }
 
@@ -77,6 +80,26 @@ export async function action({ request, params }: Route.ActionArgs) {
   const { ctx } = await requireOrg(request);
   const form = await request.formData();
   const intent = form.get("intent");
+
+  if (intent === "add_rent_history") {
+    const rentHistoryInput = {
+      leaseId: String(form.get("leaseId") ?? ""), effectiveFrom: String(form.get("effectiveFrom") ?? ""),
+      amount: String(form.get("amount") ?? ""), reason: String(form.get("reason") ?? ""),
+    };
+    const result = await addPastRentRevision(ctx, { ...rentHistoryInput, unitId: params.unitId, asOf: todayInTokyo(), now: new Date() });
+    if (!result.ok) return { error: result.error, rentHistoryInput };
+    return redirect(`/units/${params.unitId}?rentHistory=added`);
+  }
+
+  if (intent === "delete_rent_history") {
+    if (form.get("confirmedDelete") !== "yes") return { error: "日付と金額を確認して、削除の確認にチェックしてください。" };
+    const result = await deleteRentRevision(ctx, {
+      unitId: params.unitId, revisionId: String(form.get("revisionId") ?? ""),
+      effectiveFrom: String(form.get("effectiveFrom") ?? ""), amount: String(form.get("amount") ?? ""), version: String(form.get("version") ?? ""),
+    });
+    if (!result.ok) return { error: result.error };
+    return redirect(`/units/${params.unitId}?rentHistory=deleted`);
+  }
 
   if (intent === "restore_renewal") {
     await restoreMissingRenewal(ctx, params.unitId);
@@ -226,10 +249,14 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
       )}
 
       {actionData?.error && (
-        <p className="mt-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900">
+        <p role="alert" className="mt-3 rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-base text-rose-900">
           {actionData.error}
         </p>
       )}
+
+      {loaderData.rentHistoryChange && <p role="status" className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-base text-emerald-900">
+        {loaderData.rentHistoryChange === "added" ? "家賃の記録を追加しました。" : "確認した家賃記録1件を削除しました。"}
+      </p>}
 
       <header className="mt-3 flex items-center gap-3">
         <h1 className="text-3xl font-bold tabular-nums">{unit.code}</h1>
@@ -360,11 +387,10 @@ export default function Unit({ loaderData, actionData }: Route.ComponentProps) {
         </Section>
       )}
 
-      {rentHistory.length > 0 && (
-        <Section title="家賃の履歴">
-          <RentHistory rows={rentHistory} />
-        </Section>
-      )}
+      <Section title="家賃の履歴">
+        <RentHistory rows={rentHistory} leases={leaseHistory} today={today}
+          input={actionData && "rentHistoryInput" in actionData ? actionData.rentHistoryInput : undefined} />
+      </Section>
 
       <Section title="設備">
         <EquipmentSection unitId={unit.id} records={equipment} />
@@ -907,70 +933,6 @@ function DeleteLeaseForm({ lease }: { lease: UnitLeaseRow }) {
         </Form>
       </div>
     </details>
-  );
-}
-
-/**
- * 家賃の変遷。**部屋単位**（歴代の入居者を通して）で出す。
- * 空室のときに「前の入居者はいくらだったか」が見えないと募集家賃を決められないため。
- *
- * 増減は1つ前（古い側）のレコードとの差。最初の契約には差が無い。
- */
-function RentHistory({ rows }: { rows: RentHistoryRow[] }) {
-  return (
-    <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white">
-      {rows.map((row, i) => {
-        // rows は新しい順。1つ後ろの要素が「前回の家賃」になる
-        const previous = rows[i + 1];
-        const diff = previous ? row.amount - previous.amount : null;
-
-        return (
-          <li
-            key={row.id}
-            className="flex flex-wrap items-baseline gap-x-3 px-4 py-3"
-          >
-            <span className="w-24 shrink-0 text-slate-500 tabular-nums">
-              {formatSlash(row.effectiveFrom)}
-            </span>
-            <span className="text-lg font-bold tabular-nums">
-              {row.amount.toLocaleString("ja-JP")}円
-            </span>
-
-            {diff !== null && diff !== 0 && (
-              <span
-                className={`rounded-full px-2 py-0.5 text-sm font-bold tabular-nums ${
-                  diff > 0
-                    ? "bg-rose-100 text-rose-800"
-                    : "bg-sky-100 text-sky-800"
-                }`}
-              >
-                {diff > 0 ? "増額" : "減額"} {diff > 0 ? "+" : "−"}
-                {Math.abs(diff).toLocaleString("ja-JP")}
-              </span>
-            )}
-            {diff === 0 && (
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-sm text-slate-600">
-                据え置き
-              </span>
-            )}
-
-            <span className="text-sm text-slate-500">
-              {RENT_REASON_LABELS[row.reason]}
-            </span>
-            {!row.confirmed && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-sm font-medium text-amber-800">
-                予定
-              </span>
-            )}
-            {row.tenantName && (
-              <span className="ml-auto text-sm text-slate-500">
-                {row.tenantName}
-              </span>
-            )}
-          </li>
-        );
-      })}
-    </ul>
   );
 }
 

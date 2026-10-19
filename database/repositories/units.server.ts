@@ -381,6 +381,9 @@ export async function listLeasesForUnit(
 
 export type RentHistoryRow = {
   id: string;
+  leaseId: string;
+  version: number;
+  canDelete: boolean;
   effectiveFrom: IsoDate;
   amount: number;
   reason: "initial" | "renewal" | "adjustment";
@@ -402,6 +405,11 @@ export async function listRentHistoryForUnit(
   return ctx.db
     .select({
       id: rentRevisions.id,
+      leaseId: rentRevisions.leaseId,
+      version: sql<number>`${rentRevisions.updatedAt}`,
+      canDelete: sql<boolean>`${rentRevisions.confirmed} = 1 and ${leases.status} in ('active', 'ended')
+        and not exists (select 1 from procedures p where p.organization_id = ${ctx.organizationId}
+          and p.id = ${rentRevisions.procedureId} and p.status != 'done')`.mapWith(Boolean),
       effectiveFrom: rentRevisions.effectiveFrom,
       amount: rentRevisions.amount,
       reason: rentRevisions.reason,
@@ -409,8 +417,8 @@ export async function listRentHistoryForUnit(
       tenantName: tenants.name,
     })
     .from(rentRevisions)
-    .innerJoin(leases, eq(leases.id, rentRevisions.leaseId))
-    .leftJoin(tenants, eq(tenants.id, leases.tenantId))
+    .innerJoin(leases, and(eq(leases.id, rentRevisions.leaseId), eq(leases.organizationId, ctx.organizationId)))
+    .leftJoin(tenants, and(eq(tenants.id, leases.tenantId), eq(tenants.organizationId, ctx.organizationId)))
     .where(
       and(
         eq(rentRevisions.organizationId, ctx.organizationId),
